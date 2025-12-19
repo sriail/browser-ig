@@ -70,7 +70,10 @@ async function pollEmulatorStatus() {
                 setTimeout(pollEmulatorStatus, 2000);
             } else {
                 const emulatorInfo = document.getElementById('emulator-info');
-                emulatorInfo.innerHTML += `<p><strong>Status:</strong> <span style="color: #f44336;">Stopped</span></p>`;
+                const statusText = emulatorInfo.querySelector('p:last-child');
+                if (statusText) {
+                    statusText.innerHTML = '<strong>Status:</strong> <span class="status-stopped">Stopped</span>';
+                }
             }
         }
     } catch (error) {
@@ -94,10 +97,10 @@ async function stopEmulator() {
         
         if (response.ok) {
             const emulatorInfo = document.getElementById('emulator-info');
-            emulatorInfo.innerHTML = emulatorInfo.innerHTML.replace(
-                '<span style="color: var(--accent-color);">Running</span>',
-                '<span style="color: #f44336;">Stopped</span>'
-            );
+            const statusText = emulatorInfo.querySelector('p:last-child');
+            if (statusText) {
+                statusText.innerHTML = '<strong>Status:</strong> <span class="status-stopped">Stopped</span>';
+            }
             stopButton.textContent = 'Stopped';
             
             // Close window after a brief delay
@@ -142,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         // No emulator data found
         document.getElementById('emulator-info').innerHTML = 
-            '<p style="color: #f44336;">No emulator data found. Please start an emulator from the main page.</p>';
+            '<p class="error-message">No emulator data found. Please start an emulator from the main page.</p>';
     }
     
     // Stop emulator button

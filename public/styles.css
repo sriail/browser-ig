@@ -8,6 +8,7 @@
     --border-color: #dddddd;
     --accent-color: #4CAF50;
     --accent-hover: #45a049;
+    --error-color: #f44336;
     --shadow: rgba(0, 0, 0, 0.1);
     --card-bg: #ffffff;
     --button-bg: #4CAF50;
@@ -299,7 +300,7 @@ label {
     font-size: 1rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: #f44336;
+    background-color: var(--error-color);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -369,6 +370,15 @@ footer {
     .logo {
         max-width: 150px;
     }
+}
+
+/* Status Styles */
+.status-stopped {
+    color: var(--error-color);
+}
+
+.error-message {
+    color: var(--error-color);
 }
 
 /* Loading Animation */
