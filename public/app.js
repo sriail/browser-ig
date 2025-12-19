@@ -25,19 +25,25 @@ function updateLogoAndFavicon(isDarkMode) {
 }
 
 // Browser selection management
-const browserIcons = {
-    midori: 'images/midori.webp',
-    waterfox: 'images/waterfox.png',
-    brave: 'images/brave.png'
-};
+let selectedBrowser = 'midori'; // Default selection
 
-function updateBrowserPreview() {
-    const browserSelect = document.getElementById('browser-select');
-    const browserIcon = document.getElementById('browser-icon');
-    const selectedBrowser = browserSelect.value;
+function initBrowserGrid() {
+    const browserCards = document.querySelectorAll('.browser-card');
     
-    browserIcon.src = browserIcons[selectedBrowser];
-    browserIcon.alt = `${selectedBrowser.charAt(0).toUpperCase() + selectedBrowser.slice(1)} Browser`;
+    // Set initial selection
+    browserCards[0].classList.add('selected');
+    
+    // Add click handlers
+    browserCards.forEach(card => {
+        card.addEventListener('click', () => {
+            // Remove selected class from all cards
+            browserCards.forEach(c => c.classList.remove('selected'));
+            // Add selected class to clicked card
+            card.classList.add('selected');
+            // Update selected browser
+            selectedBrowser = card.dataset.browser;
+        });
+    });
 }
 
 // Status message display
@@ -55,16 +61,13 @@ function showStatus(message, type = 'info') {
 }
 
 // Emulator management
-let currentEmulatorId = null;
-
 async function startEmulator() {
-    const browserSelect = document.getElementById('browser-select');
     const ramSelect = document.getElementById('ram-select');
     const vramSelect = document.getElementById('vram-select');
     const startButton = document.getElementById('start-emulator');
     
     const config = {
-        browser: browserSelect.value,
+        browser: selectedBrowser,
         ram: ramSelect.value,
         vram: vramSelect.value
     };
@@ -72,7 +75,7 @@ async function startEmulator() {
     // Disable button and show loading
     startButton.disabled = true;
     startButton.classList.add('loading');
-    startButton.innerHTML = '<span class="button-icon">⏳</span>Starting...';
+    startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>Starting...';
     
     try {
         const response = await fetch('/api/start-emulator', {
@@ -86,144 +89,42 @@ async function startEmulator() {
         const data = await response.json();
         
         if (response.ok) {
-            currentEmulatorId = data.emulatorId;
-            displayEmulatorInfo(config, data);
-            showStatus('Emulator started successfully!', 'success');
+            // Store emulator ID and config in sessionStorage for the new window
+            sessionStorage.setItem('emulatorId', data.emulatorId);
+            sessionStorage.setItem('emulatorConfig', JSON.stringify(config));
+            sessionStorage.setItem('emulatorOutput', data.output);
+            
+            // Open emulator in new window
+            window.open('emulator.html', '_blank', 'width=900,height=700');
+            
+            showStatus('Emulator started successfully! Opening in new window...', 'success');
+            
+            // Reset button
+            setTimeout(() => {
+                startButton.disabled = false;
+                startButton.classList.remove('loading');
+                startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start Emulator';
+            }, 2000);
         } else {
             showStatus(`Error: ${data.error}`, 'error');
             startButton.disabled = false;
             startButton.classList.remove('loading');
-            startButton.innerHTML = '<span class="button-icon">▶️</span>Start Emulator';
+            startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start Emulator';
         }
     } catch (error) {
         console.error('Error starting emulator:', error);
         showStatus('Failed to connect to server. Make sure the backend is running.', 'error');
         startButton.disabled = false;
         startButton.classList.remove('loading');
-        startButton.innerHTML = '<span class="button-icon">▶️</span>Start Emulator';
+        startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start Emulator';
     }
-}
-
-function displayEmulatorInfo(config, data) {
-    const emulatorDisplay = document.getElementById('emulator-display');
-    const emulatorInfo = document.getElementById('emulator-info');
-    const consoleOutput = document.getElementById('console-output');
-    
-    // Show emulator display
-    emulatorDisplay.classList.remove('hidden');
-    
-    // Display configuration
-    const ramText = config.ram === 'unlimited' ? 'Unlimited' : `${config.ram} GB`;
-    const vramText = config.vram === '1024' ? '1 GB' : `${config.vram} MB`;
-    
-    emulatorInfo.innerHTML = `
-        <p><strong>Browser:</strong> ${config.browser.charAt(0).toUpperCase() + config.browser.slice(1)}</p>
-        <p><strong>RAM:</strong> ${ramText}</p>
-        <p><strong>VRAM:</strong> ${vramText}</p>
-        <p><strong>Emulator ID:</strong> ${data.emulatorId}</p>
-        <p><strong>Status:</strong> <span style="color: var(--accent-color);">Running</span></p>
-    `;
-    
-    // Display console output
-    consoleOutput.textContent = data.output || 'Emulator starting...\n';
-    
-    // Start polling for updates
-    pollEmulatorStatus();
-    
-    // Scroll to emulator display
-    emulatorDisplay.scrollIntoView({ behavior: 'smooth' });
-}
-
-async function pollEmulatorStatus() {
-    if (!currentEmulatorId) return;
-    
-    try {
-        const response = await fetch(`/api/emulator-status/${currentEmulatorId}`);
-        const data = await response.json();
-        
-        if (response.ok) {
-            const consoleOutput = document.getElementById('console-output');
-            if (data.output) {
-                consoleOutput.textContent += data.output;
-                // Auto-scroll to bottom
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            }
-            
-            // Continue polling if emulator is still running
-            if (data.running) {
-                setTimeout(pollEmulatorStatus, 2000);
-            } else {
-                showStatus('Emulator has stopped.', 'info');
-                resetUI();
-            }
-        }
-    } catch (error) {
-        console.error('Error polling emulator status:', error);
-    }
-}
-
-async function stopEmulator() {
-    if (!currentEmulatorId) return;
-    
-    const stopButton = document.getElementById('stop-emulator');
-    stopButton.disabled = true;
-    stopButton.textContent = 'Stopping...';
-    
-    try {
-        const response = await fetch(`/api/stop-emulator/${currentEmulatorId}`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showStatus('Emulator stopped successfully.', 'success');
-            resetUI();
-        } else {
-            showStatus(`Error: ${data.error}`, 'error');
-            stopButton.disabled = false;
-            stopButton.textContent = 'Stop';
-        }
-    } catch (error) {
-        console.error('Error stopping emulator:', error);
-        showStatus('Failed to stop emulator.', 'error');
-        stopButton.disabled = false;
-        stopButton.textContent = 'Stop';
-    }
-}
-
-function resetUI() {
-    const startButton = document.getElementById('start-emulator');
-    const emulatorDisplay = document.getElementById('emulator-display');
-    const stopButton = document.getElementById('stop-emulator');
-    
-    // Reset start button
-    startButton.disabled = false;
-    startButton.classList.remove('loading');
-    startButton.innerHTML = '<span class="button-icon">▶️</span>Start Emulator';
-    
-    // Hide emulator display
-    emulatorDisplay.classList.add('hidden');
-    
-    // Reset stop button
-    stopButton.disabled = false;
-    stopButton.textContent = 'Stop';
-    
-    // Clear emulator ID
-    currentEmulatorId = null;
 }
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    updateBrowserPreview();
-    
-    // Browser selection change
-    document.getElementById('browser-select').addEventListener('change', updateBrowserPreview);
+    initBrowserGrid();
     
     // Start emulator button
     document.getElementById('start-emulator').addEventListener('click', startEmulator);
-    
-    // Stop emulator button
-    document.getElementById('stop-emulator').addEventListener('click', stopEmulator);
 });
