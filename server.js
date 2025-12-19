@@ -15,6 +15,9 @@ app.use(express.static('public'));
 // Store active emulator instances
 const emulators = new Map();
 
+// Maximum output buffer size (in characters)
+const MAX_BUFFER_SIZE = 50000;
+
 // Browser configurations
 const browserConfigs = {
     midori: {
@@ -111,6 +114,7 @@ function startQemuEmulator(config) {
             config,
             browserConfig,
             outputBuffer,
+            lastReadPosition: 0, // Track what has been sent to client
             running: true,
             startTime: new Date()
         });
@@ -194,12 +198,29 @@ function setupProcessHandlers(process, emulatorId, config) {
     process.stdout?.on('data', (data) => {
         const output = data.toString();
         emulator.outputBuffer += output;
+        
+        // Trim buffer if it gets too large (keep last MAX_BUFFER_SIZE characters)
+        if (emulator.outputBuffer.length > MAX_BUFFER_SIZE) {
+            const excessLength = emulator.outputBuffer.length - MAX_BUFFER_SIZE;
+            emulator.outputBuffer = emulator.outputBuffer.substring(excessLength);
+            // Adjust read position accordingly
+            emulator.lastReadPosition = Math.max(0, emulator.lastReadPosition - excessLength);
+        }
+        
         console.log(`[${config.browser}] ${output}`);
     });
     
     process.stderr?.on('data', (data) => {
         const output = data.toString();
         emulator.outputBuffer += `ERROR: ${output}`;
+        
+        // Trim buffer if it gets too large
+        if (emulator.outputBuffer.length > MAX_BUFFER_SIZE) {
+            const excessLength = emulator.outputBuffer.length - MAX_BUFFER_SIZE;
+            emulator.outputBuffer = emulator.outputBuffer.substring(excessLength);
+            emulator.lastReadPosition = Math.max(0, emulator.lastReadPosition - excessLength);
+        }
+        
         console.error(`[${config.browser}] ERROR: ${output}`);
     });
     
@@ -290,12 +311,12 @@ app.get('/api/emulator-status/:id', (req, res) => {
     }
     
     // Get new output since last check
-    const output = emulator.outputBuffer;
-    emulator.outputBuffer = ''; // Clear buffer after reading
+    const newOutput = emulator.outputBuffer.substring(emulator.lastReadPosition);
+    emulator.lastReadPosition = emulator.outputBuffer.length;
     
     res.json({
         running: emulator.running,
-        output: output,
+        output: newOutput,
         config: emulator.config,
         uptime: Math.floor((new Date() - emulator.startTime) / 1000)
     });
