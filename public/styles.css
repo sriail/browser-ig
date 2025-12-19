@@ -8,6 +8,7 @@
     --border-color: #dddddd;
     --accent-color: #4CAF50;
     --accent-hover: #45a049;
+    --error-color: #f44336;
     --shadow: rgba(0, 0, 0, 0.1);
     --card-bg: #ffffff;
     --button-bg: #4CAF50;
@@ -108,7 +109,11 @@ label {
 }
 
 .label-icon {
+    width: 20px;
+    height: 20px;
     margin-right: 8px;
+    vertical-align: middle;
+    display: inline-block;
 }
 
 .config-select {
@@ -133,24 +138,49 @@ label {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
-/* Browser Preview */
-.browser-preview {
+/* Browser Grid */
+.browser-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
     margin-top: 15px;
-    text-align: center;
-    padding: 20px;
+}
+
+.browser-card {
     background-color: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.browser-card:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px var(--shadow);
+}
+
+.browser-card.selected {
+    border-color: var(--accent-color);
+    background-color: var(--bg-tertiary);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.browser-card img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 10px;
     border-radius: 8px;
 }
 
-#browser-icon {
-    max-width: 120px;
-    height: auto;
-    border-radius: 8px;
-    transition: transform 0.3s ease;
-}
-
-#browser-icon:hover {
-    transform: scale(1.05);
+.browser-card h3 {
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin: 0;
+    font-weight: 600;
 }
 
 /* Buttons */
@@ -182,7 +212,9 @@ label {
 }
 
 .button-icon {
-    font-size: 1.3rem;
+    width: 20px;
+    height: 20px;
+    display: inline-block;
 }
 
 /* Status Message */
@@ -268,7 +300,7 @@ label {
     font-size: 1rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: #f44336;
+    background-color: var(--error-color);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -338,6 +370,15 @@ footer {
     .logo {
         max-width: 150px;
     }
+}
+
+/* Status Styles */
+.status-stopped {
+    color: var(--error-color);
+}
+
+.error-message {
+    color: var(--error-color);
 }
 
 /* Loading Animation */
