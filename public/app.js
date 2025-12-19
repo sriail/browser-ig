@@ -64,6 +64,7 @@ function showStatus(message, type = 'info') {
 async function startEmulator() {
     const ramSelect = document.getElementById('ram-select');
     const vramSelect = document.getElementById('vram-select');
+    const windowTargetSelect = document.getElementById('window-target-select');
     const startButton = document.getElementById('start-emulator');
     
     const config = {
@@ -71,6 +72,8 @@ async function startEmulator() {
         ram: ramSelect.value,
         vram: vramSelect.value
     };
+    
+    const windowTarget = windowTargetSelect.value;
     
     // Disable button and show loading
     startButton.disabled = true;
@@ -89,22 +92,33 @@ async function startEmulator() {
         const data = await response.json();
         
         if (response.ok) {
-            // Store emulator ID and config in sessionStorage for the new window
+            // Store emulator ID and config in sessionStorage for the new window/tab
             sessionStorage.setItem('emulatorId', data.emulatorId);
             sessionStorage.setItem('emulatorConfig', JSON.stringify(config));
             sessionStorage.setItem('emulatorOutput', data.output);
             
-            // Open emulator in new window
-            window.open('emulator.html', '_blank', 'width=900,height=700');
+            // Open emulator based on selected target
+            if (windowTarget === 'window') {
+                // Open in new window with specific dimensions
+                window.open('emulator.html', '_blank', 'width=900,height=700');
+            } else if (windowTarget === '_blank') {
+                // Open in new tab
+                window.open('emulator.html', '_blank');
+            } else {
+                // Open in same tab (_self)
+                window.location.href = 'emulator.html';
+            }
             
-            showStatus('Emulator started successfully! Opening in new window...', 'success');
+            showStatus('Emulator started successfully!', 'success');
             
-            // Reset button
-            setTimeout(() => {
-                startButton.disabled = false;
-                startButton.classList.remove('loading');
-                startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start Emulator';
-            }, 2000);
+            // Reset button (only if not opening in same tab)
+            if (windowTarget !== '_self') {
+                setTimeout(() => {
+                    startButton.disabled = false;
+                    startButton.classList.remove('loading');
+                    startButton.innerHTML = '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start Emulator';
+                }, 2000);
+            }
         } else {
             showStatus(`Error: ${data.error}`, 'error');
             startButton.disabled = false;
