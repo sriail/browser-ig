@@ -1,0 +1,359 @@
+/* CSS Variables for Theme Support */
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-tertiary: #e8e8e8;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --border-color: #dddddd;
+    --accent-color: #4CAF50;
+    --accent-hover: #45a049;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --card-bg: #ffffff;
+    --button-bg: #4CAF50;
+    --button-text: #ffffff;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --bg-tertiary: #3a3a3a;
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --border-color: #444444;
+        --accent-color: #66BB6A;
+        --accent-hover: #5cb85f;
+        --shadow: rgba(0, 0, 0, 0.5);
+        --card-bg: #2d2d2d;
+        --button-bg: #66BB6A;
+        --button-text: #ffffff;
+    }
+}
+
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header Styles */
+header {
+    text-align: center;
+    padding: 30px 0;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.logo {
+    max-width: 200px;
+    height: auto;
+    margin-bottom: 20px;
+    transition: opacity 0.3s ease;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: var(--text-primary);
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+/* Main Content */
+main {
+    flex: 1;
+}
+
+.emulator-config {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 6px var(--shadow);
+    margin-bottom: 30px;
+}
+
+.config-section {
+    margin-bottom: 25px;
+}
+
+.config-section:last-child {
+    margin-bottom: 0;
+}
+
+label {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.label-icon {
+    margin-right: 8px;
+}
+
+.config-select {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.config-select:hover {
+    border-color: var(--accent-color);
+}
+
+.config-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+/* Browser Preview */
+.browser-preview {
+    margin-top: 15px;
+    text-align: center;
+    padding: 20px;
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+#browser-icon {
+    max-width: 120px;
+    height: auto;
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+
+#browser-icon:hover {
+    transform: scale(1.05);
+}
+
+/* Buttons */
+.start-button {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--button-text);
+    background-color: var(--button-bg);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.start-button:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
+.start-button:active {
+    transform: translateY(0);
+}
+
+.button-icon {
+    font-size: 1.3rem;
+}
+
+/* Status Message */
+.status-message {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 500;
+    display: none;
+}
+
+.status-message.success {
+    display: block;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+    display: block;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-message.info {
+    display: block;
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* Dark mode status colors */
+@media (prefers-color-scheme: dark) {
+    .status-message.success {
+        background-color: #1e4620;
+        color: #b7e4b9;
+        border-color: #2d5f2e;
+    }
+    
+    .status-message.error {
+        background-color: #4a1c1c;
+        color: #f8b4b4;
+        border-color: #6d2929;
+    }
+    
+    .status-message.info {
+        background-color: #1c3d47;
+        color: #b3e0ea;
+        border-color: #2d5a66;
+    }
+}
+
+/* Emulator Display */
+.emulator-display {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 6px var(--shadow);
+}
+
+.emulator-display.hidden {
+    display: none;
+}
+
+.emulator-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.emulator-header h3 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.stop-button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: #f44336;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.stop-button:hover {
+    background-color: #da190b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
+.emulator-info {
+    background-color: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.emulator-info p {
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+
+.emulator-info strong {
+    color: var(--accent-color);
+}
+
+.emulator-console h4 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.console-output {
+    background-color: #000000;
+    color: #00ff00;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 20px 0;
+    margin-top: 40px;
+    border-top: 2px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .emulator-config {
+        padding: 20px;
+    }
+    
+    .logo {
+        max-width: 150px;
+    }
+}
+
+/* Loading Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading::after {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-left: 10px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
