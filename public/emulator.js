@@ -119,7 +119,7 @@ function displayEmulatorInfo(config, data) {
 function showError(message) {
     const emulatorInfo = document.getElementById('emulator-info');
     emulatorInfo.innerHTML = `
-        <p style="color: #f44336;"><strong>Error:</strong> ${message}</p>
+        <p style="color: var(--error-color);"><strong>Error:</strong> ${message}</p>
         <p>Please close this window and try again from the main page.</p>
     `;
 }
@@ -144,7 +144,7 @@ async function pollEmulatorStatus(emulatorId) {
                 setTimeout(() => pollEmulatorStatus(emulatorId), 2000);
             } else {
                 const emulatorInfo = document.getElementById('emulator-info');
-                emulatorInfo.innerHTML += '<p style="color: #f44336;"><strong>Status:</strong> Stopped</p>';
+                emulatorInfo.innerHTML += '<p style="color: var(--error-color);"><strong>Status:</strong> Stopped</p>';
             }
         }
     } catch (error) {
@@ -169,7 +169,7 @@ async function stopEmulator() {
         
         if (response.ok) {
             const emulatorInfo = document.getElementById('emulator-info');
-            emulatorInfo.innerHTML += '<p style="color: #f44336;"><strong>Status:</strong> Stopped</p>';
+            emulatorInfo.innerHTML += '<p style="color: var(--error-color);"><strong>Status:</strong> Stopped</p>';
             stopButton.textContent = 'Stopped';
             
             // Optionally close the window after a delay

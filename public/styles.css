@@ -8,6 +8,7 @@
     --border-color: #dddddd;
     --accent-color: #4CAF50;
     --accent-hover: #45a049;
+    --error-color: #f44336;
     --shadow: rgba(0, 0, 0, 0.1);
     --card-bg: #ffffff;
     --button-bg: #4CAF50;
@@ -25,6 +26,7 @@
         --border-color: #444444;
         --accent-color: #66BB6A;
         --accent-hover: #5cb85f;
+        --error-color: #f44336;
         --shadow: rgba(0, 0, 0, 0.5);
         --card-bg: #2d2d2d;
         --button-bg: #66BB6A;
@@ -189,11 +191,6 @@ label {
     color: var(--text-primary);
 }
 
-/* Browser Preview - Hide this as we're using grid now */
-.browser-preview {
-    display: none;
-}
-
 /* Buttons */
 .start-button {
     width: 100%;
@@ -309,7 +306,7 @@ label {
     font-size: 1rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: #f44336;
+    background-color: var(--error-color);
     border: none;
     border-radius: 6px;
     cursor: pointer;

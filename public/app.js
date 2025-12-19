@@ -73,7 +73,7 @@ async function startEmulator() {
     startButton.disabled = true;
     startButton.classList.add('loading');
     startButton.innerHTML = `
-        <svg class="button-icon" viewBox="0 0 24 24" fill="currentColor">
+        <svg class="button-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <circle cx="12" cy="12" r="10" opacity="0.25"/>
             <path d="M12 2 A 10 10 0 0 1 22 12" opacity="0.75"/>
         </svg>
