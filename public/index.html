@@ -17,23 +17,39 @@
         <main>
             <div class="emulator-config">
                 <div class="config-section">
-                    <label for="browser-select">
-                        <span class="label-icon">🌐</span>
+                    <label>
+                        <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
                         Select Browser:
                     </label>
-                    <select id="browser-select" class="config-select">
-                        <option value="midori">Midori</option>
-                        <option value="waterfox">Waterfox</option>
-                        <option value="brave">Brave</option>
-                    </select>
-                    <div class="browser-preview">
-                        <img id="browser-icon" src="images/midori.webp" alt="Browser Icon">
+                    <div id="browser-grid" class="browser-grid">
+                        <div class="browser-option selected" data-browser="midori">
+                            <img src="images/midori.webp" alt="Midori Browser">
+                            <span>Midori</span>
+                        </div>
+                        <div class="browser-option" data-browser="waterfox">
+                            <img src="images/waterfox.png" alt="Waterfox Browser">
+                            <span>Waterfox</span>
+                        </div>
+                        <div class="browser-option" data-browser="brave">
+                            <img src="images/brave.png" alt="Brave Browser">
+                            <span>Brave</span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="config-section">
                     <label for="ram-select">
-                        <span class="label-icon">💾</span>
+                        <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                            <line x1="6" y1="2" x2="6" y2="6"></line>
+                            <line x1="10" y1="2" x2="10" y2="6"></line>
+                            <line x1="14" y1="2" x2="14" y2="6"></line>
+                            <line x1="18" y1="2" x2="18" y2="6"></line>
+                        </svg>
                         RAM Amount:
                     </label>
                     <select id="ram-select" class="config-select">
@@ -50,7 +66,11 @@
 
                 <div class="config-section">
                     <label for="vram-select">
-                        <span class="label-icon">🎮</span>
+                        <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
                         VRAM Amount:
                     </label>
                     <select id="vram-select" class="config-select">
@@ -70,24 +90,14 @@
 
                 <div class="config-section">
                     <button id="start-emulator" class="start-button">
-                        <span class="button-icon">▶️</span>
+                        <svg class="button-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
                         Start Emulator
                     </button>
                 </div>
 
                 <div id="status-message" class="status-message"></div>
-            </div>
-
-            <div id="emulator-display" class="emulator-display hidden">
-                <div class="emulator-header">
-                    <h3>Emulator Running</h3>
-                    <button id="stop-emulator" class="stop-button">Stop</button>
-                </div>
-                <div id="emulator-info" class="emulator-info"></div>
-                <div class="emulator-console">
-                    <h4>Console Output:</h4>
-                    <div id="console-output" class="console-output"></div>
-                </div>
             </div>
         </main>
 

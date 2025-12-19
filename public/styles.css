@@ -8,6 +8,7 @@
     --border-color: #dddddd;
     --accent-color: #4CAF50;
     --accent-hover: #45a049;
+    --error-color: #f44336;
     --shadow: rgba(0, 0, 0, 0.1);
     --card-bg: #ffffff;
     --button-bg: #4CAF50;
@@ -25,6 +26,7 @@
         --border-color: #444444;
         --accent-color: #66BB6A;
         --accent-hover: #5cb85f;
+        --error-color: #f44336;
         --shadow: rgba(0, 0, 0, 0.5);
         --card-bg: #2d2d2d;
         --button-bg: #66BB6A;
@@ -108,7 +110,17 @@ label {
 }
 
 .label-icon {
+    width: 20px;
+    height: 20px;
     margin-right: 8px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.button-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-block;
 }
 
 .config-select {
@@ -133,24 +145,50 @@ label {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
-/* Browser Preview */
-.browser-preview {
+/* Browser Grid */
+.browser-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
     margin-top: 15px;
-    text-align: center;
+}
+
+.browser-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding: 20px;
     background-color: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.browser-option:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
+.browser-option.selected {
+    border-color: var(--accent-color);
+    background-color: var(--bg-tertiary);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.browser-option img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 10px;
     border-radius: 8px;
 }
 
-#browser-icon {
-    max-width: 120px;
-    height: auto;
-    border-radius: 8px;
-    transition: transform 0.3s ease;
-}
-
-#browser-icon:hover {
-    transform: scale(1.05);
+.browser-option span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 /* Buttons */
@@ -268,7 +306,7 @@ label {
     font-size: 1rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: #f44336;
+    background-color: var(--error-color);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -337,6 +375,10 @@ footer {
     
     .logo {
         max-width: 150px;
+    }
+    
+    .browser-grid {
+        grid-template-columns: 1fr;
     }
 }
 

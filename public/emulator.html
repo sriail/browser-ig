@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser IG - Emulator Running</title>
+    <link rel="icon" type="image/png" id="favicon">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img id="logo" src="" alt="Browser IG Logo" class="logo">
+            <h1>Browser IG - Emulator</h1>
+        </header>
+        
+        <main>
+            <div id="emulator-display" class="emulator-display">
+                <div class="emulator-header">
+                    <h3>Emulator Running</h3>
+                    <button id="stop-emulator" class="stop-button">Stop</button>
+                </div>
+                <div id="emulator-info" class="emulator-info"></div>
+                <div class="emulator-console">
+                    <h4>Console Output:</h4>
+                    <div id="console-output" class="console-output"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 Browser IG - QEMU Browser Emulator</p>
+        </footer>
+    </div>
+
+    <script src="emulator.js"></script>
+</body>
+</html>
