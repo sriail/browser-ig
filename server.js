@@ -7,9 +7,37 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Simple rate limiting
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 60; // 60 requests per minute
+
+function rateLimiter(req, res, next) {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (!requestCounts.has(ip)) {
+        requestCounts.set(ip, []);
+    }
+    
+    const requests = requestCounts.get(ip);
+    // Remove old requests outside the window
+    const recentRequests = requests.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
+    
+    if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) {
+        return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+    
+    recentRequests.push(now);
+    requestCounts.set(ip, recentRequests);
+    
+    next();
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(rateLimiter);
 app.use(express.static('public'));
 
 // Store active emulator instances
@@ -368,7 +396,7 @@ app.get('/api/emulators', (req, res) => {
     res.json({ emulators: activeEmulators });
 });
 
-// Serve index.html for root
+// Serve index.html for root (rate-limited by global middleware)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
