@@ -6,13 +6,13 @@
     --text-primary: #333333;
     --text-secondary: #666666;
     --border-color: #dddddd;
-    --accent-color: #4CAF50;
-    --accent-hover: #45a049;
+    --accent-color: #ffffff;
+    --accent-hover: #f0f0f0;
     --error-color: #f44336;
     --shadow: rgba(0, 0, 0, 0.1);
     --card-bg: #ffffff;
-    --button-bg: #4CAF50;
-    --button-text: #ffffff;
+    --button-bg: #ffffff;
+    --button-text: #333333;
 }
 
 /* Dark Mode */
@@ -24,12 +24,12 @@
         --text-primary: #e0e0e0;
         --text-secondary: #b0b0b0;
         --border-color: #444444;
-        --accent-color: #66BB6A;
-        --accent-hover: #5cb85f;
+        --accent-color: #ffffff;
+        --accent-hover: #e0e0e0;
         --shadow: rgba(0, 0, 0, 0.5);
         --card-bg: #2d2d2d;
-        --button-bg: #66BB6A;
-        --button-text: #ffffff;
+        --button-bg: #ffffff;
+        --button-text: #1a1a1a;
     }
 }
 
@@ -66,7 +66,7 @@ header {
 }
 
 .logo {
-    max-width: 200px;
+    max-width: 350px;
     height: auto;
     margin-bottom: 20px;
     transition: opacity 0.3s ease;
@@ -135,7 +135,7 @@ label {
 
 .config-select:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    box-shadow: 0 0 0 3px rgba(200, 200, 200, 0.1);
 }
 
 /* Browser Grid */
@@ -165,7 +165,7 @@ label {
 .browser-card.selected {
     border-color: var(--accent-color);
     background-color: var(--bg-tertiary);
-    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    box-shadow: 0 0 0 3px rgba(200, 200, 200, 0.1);
 }
 
 .browser-card img {
@@ -191,7 +191,7 @@ label {
     font-weight: 600;
     color: var(--button-text);
     background-color: var(--button-bg);
-    border: none;
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -203,6 +203,7 @@ label {
 
 .start-button:hover {
     background-color: var(--accent-hover);
+    border-color: var(--text-primary);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px var(--shadow);
 }
@@ -326,7 +327,7 @@ label {
 }
 
 .emulator-info strong {
-    color: var(--accent-color);
+    color: var(--text-primary);
 }
 
 .emulator-console h4 {
@@ -368,7 +369,7 @@ footer {
     }
     
     .logo {
-        max-width: 150px;
+        max-width: 250px;
     }
 }
 
