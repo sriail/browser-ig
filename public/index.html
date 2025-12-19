@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser IG - Browser Emulator</title>
+    <link rel="icon" type="image/png" id="favicon">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img id="logo" src="" alt="Browser IG Logo" class="logo">
+            <h1>Browser IG - Emulator</h1>
+        </header>
+        
+        <main>
+            <div class="emulator-config">
+                <div class="config-section">
+                    <label for="browser-select">
+                        <span class="label-icon">🌐</span>
+                        Select Browser:
+                    </label>
+                    <select id="browser-select" class="config-select">
+                        <option value="midori">Midori</option>
+                        <option value="waterfox">Waterfox</option>
+                        <option value="brave">Brave</option>
+                    </select>
+                    <div class="browser-preview">
+                        <img id="browser-icon" src="images/midori.webp" alt="Browser Icon">
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <label for="ram-select">
+                        <span class="label-icon">💾</span>
+                        RAM Amount:
+                    </label>
+                    <select id="ram-select" class="config-select">
+                        <option value="1">1 GB</option>
+                        <option value="2" selected>2 GB</option>
+                        <option value="4">4 GB</option>
+                        <option value="6">6 GB</option>
+                        <option value="8">8 GB</option>
+                        <option value="10">10 GB</option>
+                        <option value="12">12 GB</option>
+                        <option value="unlimited">Unlimited</option>
+                    </select>
+                </div>
+
+                <div class="config-section">
+                    <label for="vram-select">
+                        <span class="label-icon">🎮</span>
+                        VRAM Amount:
+                    </label>
+                    <select id="vram-select" class="config-select">
+                        <option value="40">40 MB</option>
+                        <option value="80">80 MB</option>
+                        <option value="104">104 MB</option>
+                        <option value="200" selected>200 MB</option>
+                        <option value="304">304 MB</option>
+                        <option value="400">400 MB</option>
+                        <option value="504">504 MB</option>
+                        <option value="600">600 MB</option>
+                        <option value="704">704 MB</option>
+                        <option value="800">800 MB</option>
+                        <option value="1024">1 GB</option>
+                    </select>
+                </div>
+
+                <div class="config-section">
+                    <button id="start-emulator" class="start-button">
+                        <span class="button-icon">▶️</span>
+                        Start Emulator
+                    </button>
+                </div>
+
+                <div id="status-message" class="status-message"></div>
+            </div>
+
+            <div id="emulator-display" class="emulator-display hidden">
+                <div class="emulator-header">
+                    <h3>Emulator Running</h3>
+                    <button id="stop-emulator" class="stop-button">Stop</button>
+                </div>
+                <div id="emulator-info" class="emulator-info"></div>
+                <div class="emulator-console">
+                    <h4>Console Output:</h4>
+                    <div id="console-output" class="console-output"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 Browser IG - QEMU Browser Emulator</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
