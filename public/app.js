@@ -92,14 +92,14 @@ async function startEmulator() {
         const data = await response.json();
         
         if (response.ok) {
-            // Store emulator ID and config in sessionStorage for the new window/tab
+            // Store emulator ID and config in sessionStorage for emulator page
             sessionStorage.setItem('emulatorId', data.emulatorId);
             sessionStorage.setItem('emulatorConfig', JSON.stringify(config));
             sessionStorage.setItem('emulatorOutput', data.output);
             
             // Open emulator based on selected target
             if (windowTarget === 'window') {
-                // Open in new window with specific dimensions
+                // Open in new popup window with specific dimensions
                 window.open('emulator.html', '_blank', 'width=900,height=700');
             } else if (windowTarget === '_blank') {
                 // Open in new tab
