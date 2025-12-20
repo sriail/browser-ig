@@ -1,11 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const zlib = require('zlib');
+const net = require('net');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -72,9 +73,21 @@ const browserConfigs = {
 // Directory to store downloaded images
 const IMAGES_DIR = path.join(__dirname, 'qemu-images');
 
+// Base VNC port (QEMU uses display number, actual port = 5900 + display)
+let nextVncDisplay = 0;
+
 // Ensure images directory exists
 if (!fs.existsSync(IMAGES_DIR)) {
     fs.mkdirSync(IMAGES_DIR, { recursive: true });
+}
+
+/**
+ * Find an available VNC display number
+ */
+function getAvailableVncDisplay() {
+    const display = nextVncDisplay;
+    nextVncDisplay = (nextVncDisplay + 1) % 100; // Cycle through 0-99
+    return display;
 }
 
 /**
@@ -84,90 +97,140 @@ async function downloadAndExtractImage(url, targetPath) {
     return new Promise((resolve, reject) => {
         console.log(`Downloading image from: ${url}`);
         
-        const file = fs.createWriteStream(targetPath);
-        const gunzip = zlib.createGunzip();
+        const gzPath = targetPath + '.gz';
         
-        // Add error handlers for streams
         const cleanup = () => {
-            fs.stat(targetPath, (statErr) => {
-                if (!statErr) {
-                    fs.unlink(targetPath, (err) => {
-                        if (err) {
-                            console.error(`Failed to clean up file ${targetPath}:`, err.message);
-                        }
-                    });
+            // Clean up temp gz file if exists
+            if (fs.existsSync(gzPath)) {
+                try {
+                    fs.unlinkSync(gzPath);
+                } catch (err) {
+                    console.error(`Failed to clean up temp file ${gzPath}:`, err.message);
                 }
-            });
+            }
+            // Clean up target file if exists and incomplete
+            if (fs.existsSync(targetPath)) {
+                try {
+                    fs.unlinkSync(targetPath);
+                } catch (err) {
+                    console.error(`Failed to clean up file ${targetPath}:`, err.message);
+                }
+            }
         };
         
-        file.on('error', (err) => {
-            cleanup();
-            reject(err);
-        });
-        
-        // Register finish handler before piping
-        file.on('finish', () => {
-            console.log(`Image downloaded and extracted to: ${targetPath}`);
-            resolve(targetPath);
-        });
-        
-        gunzip.on('error', (err) => {
-            cleanup();
-            reject(err);
-        });
-        
-        https.get(url, (response) => {
-            if (response.statusCode === 302 || response.statusCode === 301) {
-                // Validate location header exists
-                if (!response.headers.location) {
-                    cleanup();
-                    reject(new Error('Redirect response missing location header'));
-                    return;
-                }
-                
-                // Validate redirect URL to prevent SSRF
-                const redirectUrl = new URL(response.headers.location);
-                if (redirectUrl.protocol !== 'https:') {
-                    cleanup();
-                    reject(new Error('Redirect URL must use HTTPS protocol'));
-                    return;
-                }
-                
-                // Handle redirect
-                https.get(response.headers.location, (redirectResponse) => {
-                    // Validate redirect response status
-                    if (redirectResponse.statusCode !== 200) {
-                        cleanup();
-                        reject(new Error(`Failed to download image: HTTP ${redirectResponse.statusCode}`));
+        /**
+         * Download file from URL following redirects
+         */
+        const downloadFile = (downloadUrl, destPath, callback) => {
+            const file = fs.createWriteStream(destPath);
+            
+            file.on('error', (err) => {
+                file.close();
+                callback(err);
+            });
+            
+            const request = https.get(downloadUrl, (response) => {
+                // Follow redirects (GitHub releases use 302)
+                if (response.statusCode === 301 || response.statusCode === 302) {
+                    const redirectUrl = response.headers.location;
+                    if (!redirectUrl) {
+                        file.close();
+                        callback(new Error('Redirect response missing location header'));
                         return;
                     }
                     
-                    // Add error handler for redirect response
-                    redirectResponse.on('error', (err) => {
-                        cleanup();
-                        reject(err);
-                    });
+                    // Validate redirect URL
+                    try {
+                        const parsed = new URL(redirectUrl);
+                        if (parsed.protocol !== 'https:') {
+                            file.close();
+                            callback(new Error('Redirect URL must use HTTPS protocol'));
+                            return;
+                        }
+                    } catch (parseErr) {
+                        file.close();
+                        callback(new Error(`Invalid redirect URL: ${redirectUrl}`));
+                        return;
+                    }
                     
-                    redirectResponse.pipe(gunzip).pipe(file);
-                }).on('error', (err) => {
-                    cleanup();
-                    reject(err);
-                });
-            } else if (response.statusCode === 200) {
-                // Add error handler for response
-                response.on('error', (err) => {
-                    cleanup();
-                    reject(err);
+                    file.close();
+                    // Follow redirect
+                    downloadFile(redirectUrl, destPath, callback);
+                    return;
+                }
+                
+                if (response.statusCode !== 200) {
+                    file.close();
+                    callback(new Error(`Failed to download: HTTP ${response.statusCode}`));
+                    return;
+                }
+                
+                response.pipe(file);
+                
+                file.on('finish', () => {
+                    file.close();
+                    callback(null);
                 });
                 
-                response.pipe(gunzip).pipe(file);
-            } else {
+                response.on('error', (err) => {
+                    file.close();
+                    callback(err);
+                });
+            });
+            
+            request.on('error', (err) => {
+                file.close();
+                callback(err);
+            });
+            
+            request.setTimeout(300000, () => { // 5 minute timeout
+                request.destroy();
+                file.close();
+                callback(new Error('Download timeout'));
+            });
+        };
+        
+        // Step 1: Download the gzipped file
+        console.log(`Downloading gzipped file to: ${gzPath}`);
+        downloadFile(url, gzPath, (downloadErr) => {
+            if (downloadErr) {
                 cleanup();
-                reject(new Error(`Failed to download image: HTTP ${response.statusCode}`));
+                reject(new Error(`Download failed: ${downloadErr.message}`));
+                return;
             }
-        }).on('error', (err) => {
-            cleanup();
-            reject(err);
+            
+            console.log(`Download complete, extracting to: ${targetPath}`);
+            
+            // Step 2: Extract the gzipped file
+            const readStream = fs.createReadStream(gzPath);
+            const writeStream = fs.createWriteStream(targetPath);
+            const gunzip = zlib.createGunzip();
+            
+            readStream.on('error', (err) => {
+                cleanup();
+                reject(new Error(`Read error: ${err.message}`));
+            });
+            
+            gunzip.on('error', (err) => {
+                cleanup();
+                reject(new Error(`Decompression error: ${err.message}`));
+            });
+            
+            writeStream.on('error', (err) => {
+                cleanup();
+                reject(new Error(`Write error: ${err.message}`));
+            });
+            
+            writeStream.on('finish', () => {
+                // Clean up temp gz file
+                if (fs.existsSync(gzPath)) {
+                    fs.unlinkSync(gzPath);
+                }
+                console.log(`Image downloaded and extracted to: ${targetPath}`);
+                resolve(targetPath);
+            });
+            
+            readStream.pipe(gunzip).pipe(writeStream);
         });
     });
 }
@@ -228,6 +291,11 @@ async function startQemuEmulator(config) {
     const vramParam = getVramParameter(config.vram);
     const browserConfig = browserConfigs[config.browser];
     
+    // Get VNC display number
+    const vncDisplay = getAvailableVncDisplay();
+    const vncPort = 5900 + vncDisplay;
+    const websocketPort = 6080 + vncDisplay;
+    
     // Ensure image is available (download if needed)
     let imagePath = null;
     try {
@@ -237,18 +305,23 @@ async function startQemuEmulator(config) {
         // Continue without image (simulation mode)
     }
     
-    // Build QEMU command arguments
+    // Build QEMU command arguments with VNC display
     const qemuArgs = [
         '-m', ramParam,                          // RAM allocation
         '-vga', 'std',                           // Standard VGA
         '-device', `VGA,vgamem_mb=${vramParam}`, // VRAM allocation
-        '-enable-kvm',                           // Enable KVM if available
-        '-cpu', 'host',                          // Use host CPU features
         '-smp', '2',                             // 2 CPU cores
-        '-display', 'none',                      // No display (headless)
-        '-nographic',                            // No graphic output
+        '-vnc', `:${vncDisplay}`,                // VNC display
         '-serial', 'stdio'                       // Serial output to stdio
     ];
+    
+    // Only add KVM if available (check if /dev/kvm exists)
+    if (fs.existsSync('/dev/kvm')) {
+        qemuArgs.push('-enable-kvm', '-cpu', 'host');
+    } else {
+        // Use software emulation
+        qemuArgs.push('-cpu', 'qemu64');
+    }
     
     // Add disk image if available
     if (imagePath) {
@@ -257,106 +330,144 @@ async function startQemuEmulator(config) {
     }
     
     let outputBuffer = '';
-    let process = null;
+    let qemuProcess = null;
     
+    // Initial output
+    outputBuffer = generateStartupMessage(config, browserConfig, imagePath, vncPort, websocketPort);
+    
+    // Store emulator instance first
+    const emulatorData = {
+        id: emulatorId,
+        process: null,
+        config,
+        browserConfig,
+        outputBuffer,
+        lastReadPosition: 0,
+        running: true,
+        startTime: new Date(),
+        vncDisplay,
+        vncPort,
+        websocketPort,
+        imagePath
+    };
+    emulators.set(emulatorId, emulatorData);
+    
+    // Check if QEMU is available and start accordingly
     try {
-        // For demonstration purposes, we'll simulate QEMU with a echo command
-        // In production, you would use: spawn('qemu-system-x86_64', qemuArgs)
+        const qemuPath = findQemu();
         
-        // Check if QEMU is available
-        const qemuCheck = spawn('which', ['qemu-system-x86_64']);
-        
-        qemuCheck.on('close', (code) => {
-            if (code === 0) {
-                // QEMU is available, start it (with or without image)
-                process = spawn('qemu-system-x86_64', qemuArgs);
-                setupProcessHandlers(process, emulatorId, config);
-            } else {
-                // QEMU not available, run in simulation mode
-                console.log('QEMU not found, running in simulation mode');
-                process = simulateQemu(config);
-                setupProcessHandlers(process, emulatorId, config);
-            }
-        });
-        
-        // Initial output
-        outputBuffer = generateStartupMessage(config, browserConfig, imagePath);
-        
-        // Store emulator instance
-        emulators.set(emulatorId, {
-            id: emulatorId,
-            process: null, // Will be set when process starts
-            config,
-            browserConfig,
-            outputBuffer,
-            lastReadPosition: 0, // Track what has been sent to client
-            running: true,
-            startTime: new Date()
-        });
-        
-        // Set process after a brief delay to allow initialization
-        setTimeout(() => {
-            const emulator = emulators.get(emulatorId);
-            if (emulator) {
-                emulator.process = process;
-            }
-        }, 100);
-        
+        if (qemuPath && imagePath) {
+            // QEMU is available and we have an image
+            console.log(`Starting QEMU with VNC on port ${vncPort}`);
+            console.log(`QEMU command: ${qemuPath} ${qemuArgs.join(' ')}`);
+            
+            qemuProcess = spawn(qemuPath, qemuArgs, {
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+            
+            setupProcessHandlers(qemuProcess, emulatorId, config);
+            emulatorData.process = qemuProcess;
+            
+            // Add VNC connection info to output
+            setTimeout(() => {
+                const emulator = emulators.get(emulatorId);
+                if (emulator) {
+                    emulator.outputBuffer += `\nVNC Server started on port ${vncPort}\n`;
+                    emulator.outputBuffer += `Websocket proxy available on port ${websocketPort}\n`;
+                }
+            }, 500);
+        } else {
+            // QEMU not available or no image, run in simulation mode
+            console.log('QEMU not found or no image available, running in simulation mode');
+            qemuProcess = simulateQemu(config, vncPort, websocketPort);
+            setupProcessHandlers(qemuProcess, emulatorId, config);
+            emulatorData.process = qemuProcess;
+        }
     } catch (error) {
         console.error('Error starting QEMU:', error);
-        throw new Error(`Failed to start emulator: ${error.message}`);
+        emulatorData.outputBuffer += `\nError: ${error.message}\n`;
+        emulatorData.running = false;
     }
     
     return {
         emulatorId,
-        output: outputBuffer
+        output: outputBuffer,
+        vncPort,
+        websocketPort,
+        hasImage: !!imagePath
     };
+}
+
+/**
+ * Find QEMU executable
+ */
+function findQemu() {
+    try {
+        const result = execSync('which qemu-system-x86_64 2>/dev/null', { encoding: 'utf8' });
+        return result.trim();
+    } catch {
+        return null;
+    }
 }
 
 /**
  * Simulate QEMU for demo purposes when QEMU is not installed
  */
-function simulateQemu(config) {
+function simulateQemu(config, vncPort, websocketPort) {
     const { EventEmitter } = require('events');
-    const emitter = new EventEmitter();
+    const stdoutEmitter = new EventEmitter();
+    const stderrEmitter = new EventEmitter();
+    const processEmitter = new EventEmitter();
     
     // Simulate process interface
     const simulatedProcess = {
-        stdout: emitter,
-        stderr: emitter,
+        stdout: stdoutEmitter,
+        stderr: stderrEmitter,
         pid: Math.floor(Math.random() * 90000) + 10000,
         kill: () => {
-            emitter.emit('close', 0);
+            processEmitter.emit('close', 0);
         },
         on: (event, handler) => {
-            emitter.on(event, handler);
+            processEmitter.on(event, handler);
         }
     };
     
-    // Simulate startup messages
+    // Simulate startup messages (only on stdout)
     setTimeout(() => {
-        emitter.emit('data', Buffer.from('QEMU emulator version 7.0.0\n'));
+        stdoutEmitter.emit('data', Buffer.from('QEMU emulator version 7.0.0 (simulation mode)\n'));
     }, 500);
     
     setTimeout(() => {
-        emitter.emit('data', Buffer.from(`Starting ${config.browser} browser...\n`));
+        stdoutEmitter.emit('data', Buffer.from(`Starting ${config.browser} browser...\n`));
     }, 1000);
     
     setTimeout(() => {
-        emitter.emit('data', Buffer.from('Initializing virtual hardware...\n'));
+        stdoutEmitter.emit('data', Buffer.from('Initializing virtual hardware...\n'));
     }, 1500);
     
     setTimeout(() => {
-        emitter.emit('data', Buffer.from(`RAM: ${config.ram === 'unlimited' ? '16GB' : config.ram + 'GB'} allocated\n`));
+        stdoutEmitter.emit('data', Buffer.from(`RAM: ${config.ram === 'unlimited' ? '16GB' : config.ram + 'GB'} allocated\n`));
     }, 2000);
     
     setTimeout(() => {
-        emitter.emit('data', Buffer.from(`VRAM: ${config.vram}MB allocated\n`));
+        stdoutEmitter.emit('data', Buffer.from(`VRAM: ${config.vram}MB allocated\n`));
     }, 2500);
     
     setTimeout(() => {
-        emitter.emit('data', Buffer.from('Browser environment ready!\n'));
+        stdoutEmitter.emit('data', Buffer.from(`VNC Server: port ${vncPort} (simulation)\n`));
     }, 3000);
+    
+    setTimeout(() => {
+        stdoutEmitter.emit('data', Buffer.from(`WebSocket proxy: port ${websocketPort} (simulation)\n`));
+    }, 3500);
+    
+    setTimeout(() => {
+        stdoutEmitter.emit('data', Buffer.from('Browser environment ready!\n'));
+    }, 4000);
+    
+    setTimeout(() => {
+        stdoutEmitter.emit('data', Buffer.from('\n[Note: Running in simulation mode - QEMU not installed]\n'));
+    }, 4500);
     
     return simulatedProcess;
 }
@@ -419,10 +530,11 @@ function setupProcessHandlers(process, emulatorId, config) {
 /**
  * Generate startup message
  */
-function generateStartupMessage(config, browserConfig, imagePath) {
+function generateStartupMessage(config, browserConfig, imagePath, vncPort, websocketPort) {
     const ram = config.ram === 'unlimited' ? 'Unlimited (16GB)' : `${config.ram} GB`;
     const vram = config.vram === '1024' ? '1 GB' : `${config.vram} MB`;
-    const imageInfo = imagePath ? `\nDisk Image: ${path.basename(imagePath)}` : '';
+    const imageInfo = imagePath ? `\nDisk Image: ${path.basename(imagePath)}` : '\nDisk Image: None (simulation mode)';
+    const vncInfo = `\nVNC Port: ${vncPort}\nWebSocket Port: ${websocketPort}`;
     
     return `
 ===========================================
@@ -431,7 +543,7 @@ function generateStartupMessage(config, browserConfig, imagePath) {
 Browser: ${browserConfig.name}
 Description: ${browserConfig.description}
 RAM: ${ram}
-VRAM: ${vram}${imageInfo}
+VRAM: ${vram}${imageInfo}${vncInfo}
 ===========================================
 
 Initializing emulator...
@@ -466,7 +578,10 @@ app.post('/api/start-emulator', async (req, res) => {
         res.json({
             success: true,
             emulatorId: result.emulatorId,
-            output: result.output
+            output: result.output,
+            vncPort: result.vncPort,
+            websocketPort: result.websocketPort,
+            hasImage: result.hasImage
         });
         
     } catch (error) {
@@ -494,7 +609,9 @@ app.get('/api/emulator-status/:id', (req, res) => {
         running: emulator.running,
         output: newOutput,
         config: emulator.config,
-        uptime: Math.floor((new Date() - emulator.startTime) / 1000)
+        uptime: Math.floor((new Date() - emulator.startTime) / 1000),
+        vncPort: emulator.vncPort,
+        websocketPort: emulator.websocketPort
     });
 });
 

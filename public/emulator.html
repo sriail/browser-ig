@@ -6,6 +6,112 @@
     <title>Browser IG - Emulator Running</title>
     <link rel="icon" type="image/png" id="favicon">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .vm-display-container {
+            background-color: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .vm-display-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .vm-display-header h4 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+        
+        .vm-screen {
+            background-color: #000;
+            border-radius: 8px;
+            width: 100%;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .vm-screen canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .vm-placeholder {
+            color: #666;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .vm-placeholder h3 {
+            margin-bottom: 10px;
+            color: #888;
+        }
+        
+        .vm-placeholder p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .vm-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .vm-status .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ffcc00;
+        }
+        
+        .vm-status .status-dot.connected {
+            background-color: #00cc00;
+        }
+        
+        .vm-status .status-dot.disconnected {
+            background-color: #cc0000;
+        }
+        
+        .fullscreen-btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .fullscreen-btn:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        .connection-info {
+            background-color: var(--bg-tertiary);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+        
+        .connection-info span {
+            color: var(--text-secondary);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -20,6 +126,31 @@
                     <h3>Emulator Running</h3>
                     <button id="stop-emulator" class="stop-button">Stop</button>
                 </div>
+                
+                <!-- VM Display Window -->
+                <div class="vm-display-container">
+                    <div class="vm-display-header">
+                        <h4>VM Display</h4>
+                        <div class="vm-status">
+                            <span class="status-dot" id="vnc-status-dot"></span>
+                            <span id="vnc-status-text">Connecting...</span>
+                            <button id="fullscreen-btn" class="fullscreen-btn">Fullscreen</button>
+                        </div>
+                    </div>
+                    <div class="vm-screen" id="vm-screen">
+                        <div class="vm-placeholder" id="vm-placeholder">
+                            <h3>🖥️ VM Display</h3>
+                            <p>Waiting for VM to start...</p>
+                            <p id="vm-connection-status">Initializing VNC connection...</p>
+                        </div>
+                        <canvas id="vnc-canvas" style="display: none;"></canvas>
+                    </div>
+                    <div class="connection-info" id="connection-info" style="display: none;">
+                        <span>VNC Port:</span> <span id="vnc-port-display">-</span> | 
+                        <span>WebSocket:</span> <span id="ws-port-display">-</span>
+                    </div>
+                </div>
+                
                 <div id="emulator-info" class="emulator-info"></div>
                 <div class="emulator-console">
                     <h4>Console Output:</h4>
@@ -29,7 +160,7 @@
         </main>
 
         <footer>
-            <p>&copy; 2024 Browser IG - QEMU Browser Emulator</p>
+            <p>&copy; 2025 Browser IG - QEMU Browser Emulator</p>
         </footer>
     </div>
 
