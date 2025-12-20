@@ -3,6 +3,9 @@ const cors = require('cors');
 const { spawn } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs');
+const https = require('https');
+const zlib = require('zlib');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,7 +53,8 @@ const MAX_BUFFER_SIZE = 50000;
 const browserConfigs = {
     midori: {
         name: 'Midori',
-        image: 'midori-browser.img',
+        image: 'alpine-midori.img',
+        imageUrl: 'https://github.com/sriail/file-serving/releases/download/browser-packages/alpine-midori.img.gz',
         description: 'Lightweight web browser'
     },
     waterfox: {
@@ -64,6 +68,90 @@ const browserConfigs = {
         description: 'Privacy-focused browser with ad blocking'
     }
 };
+
+// Directory to store downloaded images
+const IMAGES_DIR = path.join(__dirname, 'qemu-images');
+
+// Ensure images directory exists
+if (!fs.existsSync(IMAGES_DIR)) {
+    fs.mkdirSync(IMAGES_DIR, { recursive: true });
+}
+
+/**
+ * Download and extract a gzipped image file
+ */
+async function downloadAndExtractImage(url, targetPath) {
+    return new Promise((resolve, reject) => {
+        console.log(`Downloading image from: ${url}`);
+        
+        const file = fs.createWriteStream(targetPath);
+        const gunzip = zlib.createGunzip();
+        
+        https.get(url, (response) => {
+            if (response.statusCode === 302 || response.statusCode === 301) {
+                // Handle redirect
+                https.get(response.headers.location, (redirectResponse) => {
+                    redirectResponse.pipe(gunzip).pipe(file);
+                    
+                    file.on('finish', () => {
+                        file.close();
+                        console.log(`Image downloaded and extracted to: ${targetPath}`);
+                        resolve(targetPath);
+                    });
+                }).on('error', reject);
+            } else {
+                response.pipe(gunzip).pipe(file);
+                
+                file.on('finish', () => {
+                    file.close();
+                    console.log(`Image downloaded and extracted to: ${targetPath}`);
+                    resolve(targetPath);
+                });
+            }
+        }).on('error', (err) => {
+            fs.unlink(targetPath, () => {}); // Delete the file on error
+            reject(err);
+        });
+        
+        file.on('error', (err) => {
+            fs.unlink(targetPath, () => {}); // Delete the file on error
+            reject(err);
+        });
+        
+        gunzip.on('error', (err) => {
+            fs.unlink(targetPath, () => {}); // Delete the file on error
+            reject(err);
+        });
+    });
+}
+
+/**
+ * Get or download the browser image
+ */
+async function ensureImageAvailable(browserConfig) {
+    const imagePath = path.join(IMAGES_DIR, browserConfig.image);
+    
+    // Check if image already exists
+    if (fs.existsSync(imagePath)) {
+        console.log(`Image already exists at: ${imagePath}`);
+        return imagePath;
+    }
+    
+    // If no URL is configured, return null (image not available)
+    if (!browserConfig.imageUrl) {
+        console.log(`No image URL configured for ${browserConfig.name}`);
+        return null;
+    }
+    
+    // Download and extract the image
+    try {
+        await downloadAndExtractImage(browserConfig.imageUrl, imagePath);
+        return imagePath;
+    } catch (error) {
+        console.error(`Failed to download image: ${error.message}`);
+        return null;
+    }
+}
 
 /**
  * Convert RAM configuration to QEMU memory parameter
@@ -87,11 +175,20 @@ function getVramParameter(vram) {
 /**
  * Start a QEMU emulator instance
  */
-function startQemuEmulator(config) {
+async function startQemuEmulator(config) {
     const emulatorId = uuidv4();
     const ramParam = getRamParameter(config.ram);
     const vramParam = getVramParameter(config.vram);
     const browserConfig = browserConfigs[config.browser];
+    
+    // Ensure image is available (download if needed)
+    let imagePath = null;
+    try {
+        imagePath = await ensureImageAvailable(browserConfig);
+    } catch (error) {
+        console.error('Error ensuring image availability:', error);
+        // Continue without image (simulation mode)
+    }
     
     // Build QEMU command arguments
     const qemuArgs = [
@@ -106,8 +203,11 @@ function startQemuEmulator(config) {
         '-serial', 'stdio'                       // Serial output to stdio
     ];
     
-    // Add disk image if it exists (for demo, we'll simulate without actual image)
-    // In production, you would add: ['-hda', path.to.disk.image]
+    // Add disk image if available
+    if (imagePath && fs.existsSync(imagePath)) {
+        qemuArgs.push('-hda', imagePath);
+        console.log(`Using disk image: ${imagePath}`);
+    }
     
     let outputBuffer = '';
     let process = null;
@@ -120,20 +220,24 @@ function startQemuEmulator(config) {
         const qemuCheck = spawn('which', ['qemu-system-x86_64']);
         
         qemuCheck.on('close', (code) => {
-            if (code === 0) {
-                // QEMU is available, start it
+            if (code === 0 && imagePath) {
+                // QEMU is available and we have an image, start it
                 process = spawn('qemu-system-x86_64', qemuArgs);
                 setupProcessHandlers(process, emulatorId, config);
             } else {
-                // QEMU not available, run in simulation mode
-                console.log('QEMU not found, running in simulation mode');
+                // QEMU not available or no image, run in simulation mode
+                if (code !== 0) {
+                    console.log('QEMU not found, running in simulation mode');
+                } else {
+                    console.log('No image available, running in simulation mode');
+                }
                 process = simulateQemu(config);
                 setupProcessHandlers(process, emulatorId, config);
             }
         });
         
         // Initial output
-        outputBuffer = generateStartupMessage(config, browserConfig);
+        outputBuffer = generateStartupMessage(config, browserConfig, imagePath);
         
         // Store emulator instance
         emulators.set(emulatorId, {
@@ -272,9 +376,10 @@ function setupProcessHandlers(process, emulatorId, config) {
 /**
  * Generate startup message
  */
-function generateStartupMessage(config, browserConfig) {
+function generateStartupMessage(config, browserConfig, imagePath) {
     const ram = config.ram === 'unlimited' ? 'Unlimited (16GB)' : `${config.ram} GB`;
     const vram = config.vram === '1024' ? '1 GB' : `${config.vram} MB`;
+    const imageInfo = imagePath ? `\nDisk Image: ${path.basename(imagePath)}` : '';
     
     return `
 ===========================================
@@ -283,7 +388,7 @@ function generateStartupMessage(config, browserConfig) {
 Browser: ${browserConfig.name}
 Description: ${browserConfig.description}
 RAM: ${ram}
-VRAM: ${vram}
+VRAM: ${vram}${imageInfo}
 ===========================================
 
 Initializing emulator...
@@ -295,7 +400,7 @@ Initializing emulator...
 /**
  * Start emulator endpoint
  */
-app.post('/api/start-emulator', (req, res) => {
+app.post('/api/start-emulator', async (req, res) => {
     try {
         const { browser, ram, vram } = req.body;
         
@@ -313,7 +418,7 @@ app.post('/api/start-emulator', (req, res) => {
         }
         
         // Start the emulator
-        const result = startQemuEmulator({ browser, ram, vram });
+        const result = await startQemuEmulator({ browser, ram, vram });
         
         res.json({
             success: true,
