@@ -89,7 +89,11 @@ async function downloadAndExtractImage(url, targetPath) {
         
         // Add error handlers for streams
         const cleanup = () => {
-            fs.unlink(targetPath, () => {});
+            fs.unlink(targetPath, (err) => {
+                if (err) {
+                    console.error(`Failed to clean up file ${targetPath}:`, err.message);
+                }
+            });
         };
         
         file.on('error', (err) => {
@@ -104,6 +108,13 @@ async function downloadAndExtractImage(url, targetPath) {
         
         https.get(url, (response) => {
             if (response.statusCode === 302 || response.statusCode === 301) {
+                // Validate location header exists
+                if (!response.headers.location) {
+                    cleanup();
+                    reject(new Error('Redirect response missing location header'));
+                    return;
+                }
+                
                 // Handle redirect
                 https.get(response.headers.location, (redirectResponse) => {
                     // Validate redirect response status
@@ -112,6 +123,12 @@ async function downloadAndExtractImage(url, targetPath) {
                         reject(new Error(`Failed to download image: HTTP ${redirectResponse.statusCode}`));
                         return;
                     }
+                    
+                    // Add error handler for redirect response
+                    redirectResponse.on('error', (err) => {
+                        cleanup();
+                        reject(err);
+                    });
                     
                     redirectResponse.pipe(gunzip).pipe(file);
                     
@@ -125,6 +142,12 @@ async function downloadAndExtractImage(url, targetPath) {
                     reject(err);
                 });
             } else if (response.statusCode === 200) {
+                // Add error handler for response
+                response.on('error', (err) => {
+                    cleanup();
+                    reject(err);
+                });
+                
                 response.pipe(gunzip).pipe(file);
                 
                 file.on('finish', () => {
