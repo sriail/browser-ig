@@ -89,9 +89,13 @@ async function downloadAndExtractImage(url, targetPath) {
         
         // Add error handlers for streams
         const cleanup = () => {
-            fs.unlink(targetPath, (err) => {
-                if (err) {
-                    console.error(`Failed to clean up file ${targetPath}:`, err.message);
+            fs.stat(targetPath, (statErr) => {
+                if (!statErr) {
+                    fs.unlink(targetPath, (err) => {
+                        if (err) {
+                            console.error(`Failed to clean up file ${targetPath}:`, err.message);
+                        }
+                    });
                 }
             });
         };
@@ -99,6 +103,13 @@ async function downloadAndExtractImage(url, targetPath) {
         file.on('error', (err) => {
             cleanup();
             reject(err);
+        });
+        
+        // Register finish handler before piping
+        file.on('finish', () => {
+            file.close();
+            console.log(`Image downloaded and extracted to: ${targetPath}`);
+            resolve(targetPath);
         });
         
         gunzip.on('error', (err) => {
@@ -131,12 +142,6 @@ async function downloadAndExtractImage(url, targetPath) {
                     });
                     
                     redirectResponse.pipe(gunzip).pipe(file);
-                    
-                    file.on('finish', () => {
-                        file.close();
-                        console.log(`Image downloaded and extracted to: ${targetPath}`);
-                        resolve(targetPath);
-                    });
                 }).on('error', (err) => {
                     cleanup();
                     reject(err);
@@ -149,12 +154,6 @@ async function downloadAndExtractImage(url, targetPath) {
                 });
                 
                 response.pipe(gunzip).pipe(file);
-                
-                file.on('finish', () => {
-                    file.close();
-                    console.log(`Image downloaded and extracted to: ${targetPath}`);
-                    resolve(targetPath);
-                });
             } else {
                 cleanup();
                 reject(new Error(`Failed to download image: HTTP ${response.statusCode}`));
@@ -245,7 +244,7 @@ async function startQemuEmulator(config) {
     ];
     
     // Add disk image if available
-    if (imagePath && fs.existsSync(imagePath)) {
+    if (imagePath) {
         qemuArgs.push('-hda', imagePath);
         console.log(`Using disk image: ${imagePath}`);
     }
