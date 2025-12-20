@@ -96,11 +96,13 @@ async function startEmulator() {
             sessionStorage.setItem('emulatorId', data.emulatorId);
             sessionStorage.setItem('emulatorConfig', JSON.stringify(config));
             sessionStorage.setItem('emulatorOutput', data.output);
+            sessionStorage.setItem('emulatorVncPort', data.vncPort ? data.vncPort.toString() : '');
+            sessionStorage.setItem('emulatorSimulationMode', data.simulationMode ? 'true' : 'false');
             
             // Open emulator based on selected target
             if (windowTarget === 'window') {
-                // Open in new popup window with specific dimensions
-                window.open('emulator.html', '_blank', 'width=900,height=700');
+                // Open in new popup window with specific dimensions (larger for VM display)
+                window.open('emulator.html', '_blank', 'width=1024,height=900');
             } else if (windowTarget === '_blank') {
                 // Open in new tab
                 window.open('emulator.html', '_blank');

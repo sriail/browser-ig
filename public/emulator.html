@@ -6,6 +6,179 @@
     <title>Browser IG - Emulator Running</title>
     <link rel="icon" type="image/png" id="favicon">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* VM Display Styles */
+        .vm-display-container {
+            background-color: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .vm-display-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .vm-display-header h4 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+        
+        .vm-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .vm-status.running {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .vm-status.simulation {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .vm-status.stopped {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .vm-display {
+            background-color: #000;
+            border-radius: 8px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .vm-display canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .vm-display-placeholder {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+        
+        .vm-display-placeholder svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .vm-display-placeholder h3 {
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+        
+        .vm-display-placeholder p {
+            font-size: 0.9rem;
+            color: #666;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        /* Simulated VM screen animation */
+        .vm-simulation {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            position: relative;
+        }
+        
+        .vm-simulation .boot-screen {
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .vm-simulation .browser-logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+        }
+        
+        .vm-simulation h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .vm-simulation .loading-bar {
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .vm-simulation .loading-bar::after {
+            content: '';
+            display: block;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ccff);
+            border-radius: 2px;
+            animation: loading 2s ease-in-out infinite;
+        }
+        
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .vm-info-badge {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #888;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .vm-display {
+                min-height: 300px;
+            }
+            
+            .vm-simulation {
+                height: 300px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -20,6 +193,26 @@
                     <h3>Emulator Running</h3>
                     <button id="stop-emulator" class="stop-button">Stop</button>
                 </div>
+                
+                <!-- VM Display Window -->
+                <div class="vm-display-container">
+                    <div class="vm-display-header">
+                        <h4>VM Display</h4>
+                        <span id="vm-status-badge" class="vm-status simulation">Simulation Mode</span>
+                    </div>
+                    <div id="vm-display" class="vm-display">
+                        <div class="vm-display-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                <line x1="8" y1="21" x2="16" y2="21"></line>
+                                <line x1="12" y1="17" x2="12" y2="21"></line>
+                            </svg>
+                            <h3>Initializing VM Display...</h3>
+                            <p>The virtual machine display will appear here once the emulator is ready.</p>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="emulator-info" class="emulator-info"></div>
                 <div class="emulator-console">
                     <h4>Console Output:</h4>
