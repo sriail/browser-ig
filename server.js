@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const zlib = require('zlib');
-const net = require('net');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +49,12 @@ const emulators = new Map();
 // Maximum output buffer size (in characters)
 const MAX_BUFFER_SIZE = 50000;
 
+// Download timeout in milliseconds (5 minutes)
+const DOWNLOAD_TIMEOUT_MS = 300000;
+
+// Set of VNC displays currently in use
+const usedVncDisplays = new Set();
+
 // Browser configurations
 const browserConfigs = {
     midori: {
@@ -73,21 +78,31 @@ const browserConfigs = {
 // Directory to store downloaded images
 const IMAGES_DIR = path.join(__dirname, 'qemu-images');
 
-// Base VNC port (QEMU uses display number, actual port = 5900 + display)
-let nextVncDisplay = 0;
-
 // Ensure images directory exists
 if (!fs.existsSync(IMAGES_DIR)) {
     fs.mkdirSync(IMAGES_DIR, { recursive: true });
 }
 
 /**
- * Find an available VNC display number
+ * Find an available VNC display number (thread-safe)
  */
 function getAvailableVncDisplay() {
-    const display = nextVncDisplay;
-    nextVncDisplay = (nextVncDisplay + 1) % 100; // Cycle through 0-99
-    return display;
+    // Find the first available display from 0-99
+    for (let display = 0; display < 100; display++) {
+        if (!usedVncDisplays.has(display)) {
+            usedVncDisplays.add(display);
+            return display;
+        }
+    }
+    // If all displays are in use, throw an error
+    throw new Error('No available VNC displays');
+}
+
+/**
+ * Release a VNC display number when emulator stops
+ */
+function releaseVncDisplay(display) {
+    usedVncDisplays.delete(display);
 }
 
 /**
@@ -183,7 +198,7 @@ async function downloadAndExtractImage(url, targetPath) {
                 callback(err);
             });
             
-            request.setTimeout(300000, () => { // 5 minute timeout
+            request.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
                 request.destroy();
                 file.close();
                 callback(new Error('Download timeout'));
@@ -515,6 +530,10 @@ function setupProcessHandlers(process, emulatorId, config) {
         if (emulator) {
             emulator.running = false;
             emulator.outputBuffer += `\n\nEmulator stopped (exit code: ${code})\n`;
+            // Release the VNC display
+            if (emulator.vncDisplay !== undefined) {
+                releaseVncDisplay(emulator.vncDisplay);
+            }
         }
     });
     
@@ -523,6 +542,10 @@ function setupProcessHandlers(process, emulatorId, config) {
         if (emulator) {
             emulator.running = false;
             emulator.outputBuffer += `\n\nError: ${error.message}\n`;
+            // Release the VNC display
+            if (emulator.vncDisplay !== undefined) {
+                releaseVncDisplay(emulator.vncDisplay);
+            }
         }
     });
 }
@@ -630,6 +653,11 @@ app.post('/api/stop-emulator/:id', (req, res) => {
         if (emulator.process && emulator.running) {
             emulator.process.kill('SIGTERM');
             emulator.running = false;
+        }
+        
+        // Release the VNC display
+        if (emulator.vncDisplay !== undefined) {
+            releaseVncDisplay(emulator.vncDisplay);
         }
         
         // Remove from active emulators after a delay
