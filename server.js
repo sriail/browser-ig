@@ -87,10 +87,32 @@ async function downloadAndExtractImage(url, targetPath) {
         const file = fs.createWriteStream(targetPath);
         const gunzip = zlib.createGunzip();
         
+        // Add error handlers for streams
+        const cleanup = () => {
+            fs.unlink(targetPath, () => {});
+        };
+        
+        file.on('error', (err) => {
+            cleanup();
+            reject(err);
+        });
+        
+        gunzip.on('error', (err) => {
+            cleanup();
+            reject(err);
+        });
+        
         https.get(url, (response) => {
             if (response.statusCode === 302 || response.statusCode === 301) {
                 // Handle redirect
                 https.get(response.headers.location, (redirectResponse) => {
+                    // Validate redirect response status
+                    if (redirectResponse.statusCode !== 200) {
+                        cleanup();
+                        reject(new Error(`Failed to download image: HTTP ${redirectResponse.statusCode}`));
+                        return;
+                    }
+                    
                     redirectResponse.pipe(gunzip).pipe(file);
                     
                     file.on('finish', () => {
@@ -98,8 +120,11 @@ async function downloadAndExtractImage(url, targetPath) {
                         console.log(`Image downloaded and extracted to: ${targetPath}`);
                         resolve(targetPath);
                     });
-                }).on('error', reject);
-            } else {
+                }).on('error', (err) => {
+                    cleanup();
+                    reject(err);
+                });
+            } else if (response.statusCode === 200) {
                 response.pipe(gunzip).pipe(file);
                 
                 file.on('finish', () => {
@@ -107,19 +132,12 @@ async function downloadAndExtractImage(url, targetPath) {
                     console.log(`Image downloaded and extracted to: ${targetPath}`);
                     resolve(targetPath);
                 });
+            } else {
+                cleanup();
+                reject(new Error(`Failed to download image: HTTP ${response.statusCode}`));
             }
         }).on('error', (err) => {
-            fs.unlink(targetPath, () => {}); // Delete the file on error
-            reject(err);
-        });
-        
-        file.on('error', (err) => {
-            fs.unlink(targetPath, () => {}); // Delete the file on error
-            reject(err);
-        });
-        
-        gunzip.on('error', (err) => {
-            fs.unlink(targetPath, () => {}); // Delete the file on error
+            cleanup();
             reject(err);
         });
     });
@@ -220,17 +238,13 @@ async function startQemuEmulator(config) {
         const qemuCheck = spawn('which', ['qemu-system-x86_64']);
         
         qemuCheck.on('close', (code) => {
-            if (code === 0 && imagePath) {
-                // QEMU is available and we have an image, start it
+            if (code === 0) {
+                // QEMU is available, start it (with or without image)
                 process = spawn('qemu-system-x86_64', qemuArgs);
                 setupProcessHandlers(process, emulatorId, config);
             } else {
-                // QEMU not available or no image, run in simulation mode
-                if (code !== 0) {
-                    console.log('QEMU not found, running in simulation mode');
-                } else {
-                    console.log('No image available, running in simulation mode');
-                }
+                // QEMU not available, run in simulation mode
+                console.log('QEMU not found, running in simulation mode');
                 process = simulateQemu(config);
                 setupProcessHandlers(process, emulatorId, config);
             }
