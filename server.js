@@ -96,6 +96,16 @@ async function decompressImage(gzPath, imgPath) {
         const source = fs.createReadStream(gzPath);
         const destination = fs.createWriteStream(imgPath);
         
+        // Helper function to clean up streams on error
+        const cleanup = (err) => {
+            source.destroy();
+            gunzip.destroy();
+            destination.destroy();
+            // Remove partial output file on error
+            fs.unlink(imgPath, () => {}); // Ignore unlink errors
+            reject(err);
+        };
+        
         source.pipe(gunzip).pipe(destination);
         
         destination.on('finish', () => {
@@ -104,18 +114,18 @@ async function decompressImage(gzPath, imgPath) {
         });
         
         destination.on('error', (err) => {
-            console.error(`Error decompressing ${gzPath}:`, err);
-            reject(err);
+            console.error(`Error writing to ${imgPath}:`, err);
+            cleanup(err);
         });
         
         source.on('error', (err) => {
             console.error(`Error reading ${gzPath}:`, err);
-            reject(err);
+            cleanup(err);
         });
         
         gunzip.on('error', (err) => {
             console.error(`Gunzip error for ${gzPath}:`, err);
-            reject(err);
+            cleanup(err);
         });
     });
 }
@@ -197,8 +207,12 @@ async function startQemuEmulator(config, imagePath = null) {
     const vncPort = getNextVncPort();
     const vncDisplay = vncPort - 5900; // VNC display number (0 = 5900, 1 = 5901, etc.)
     
+    // Build disk arguments separately for clarity
+    const diskArgs = imagePath ? ['-hda', imagePath] : [];
+    
     // Build QEMU command arguments with VNC display support
     const qemuArgs = [
+        ...diskArgs,                             // Disk image (if available)
         '-m', ramParam,                          // RAM allocation
         '-vga', 'std',                           // Standard VGA
         '-device', `VGA,vgamem_mb=${vramParam}`, // VRAM allocation
@@ -207,14 +221,6 @@ async function startQemuEmulator(config, imagePath = null) {
         '-vnc', `:${vncDisplay}`,                // VNC display on calculated port
         '-monitor', 'stdio'                      // QEMU monitor on stdio
     ];
-    
-    // Add KVM if available (will be checked at runtime)
-    // Note: KVM requires host CPU support
-    
-    // Add disk image if available
-    if (imagePath) {
-        qemuArgs.unshift('-hda', imagePath);
-    }
     
     let outputBuffer = '';
     let process = null;

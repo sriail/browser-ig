@@ -148,7 +148,7 @@ function showSimulatedDesktop(config) {
     vmDisplay.innerHTML = `
         <div class="vm-simulation" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
             <div style="position: absolute; top: 0; left: 0; right: 0; padding: 8px 15px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 0.85rem;">📅 ${new Date().toLocaleTimeString()}</span>
+                <span style="font-size: 0.85rem;" aria-label="Current time"><span aria-hidden="true">📅</span> ${new Date().toLocaleTimeString()}</span>
                 <span style="font-size: 0.85rem;">${browserName} Browser VM</span>
             </div>
             <div style="text-align: center; padding: 60px 20px; animation: fadeIn 0.5s ease-in-out;">
@@ -157,7 +157,7 @@ function showSimulatedDesktop(config) {
                 <p style="opacity: 0.9; max-width: 300px; margin: 0 auto;">Your virtual browser environment is now running in simulation mode.</p>
                 <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                     <div style="background: rgba(255,255,255,0.15); padding: 15px 25px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <div style="font-size: 1.5rem; font-weight: bold;">✓</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;" aria-hidden="true">✓</div>
                         <div style="font-size: 0.8rem; opacity: 0.8;">VM Active</div>
                     </div>
                     <div style="background: rgba(255,255,255,0.15); padding: 15px 25px; border-radius: 8px; backdrop-filter: blur(10px);">
