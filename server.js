@@ -107,7 +107,6 @@ async function downloadAndExtractImage(url, targetPath) {
         
         // Register finish handler before piping
         file.on('finish', () => {
-            file.close();
             console.log(`Image downloaded and extracted to: ${targetPath}`);
             resolve(targetPath);
         });
@@ -123,6 +122,14 @@ async function downloadAndExtractImage(url, targetPath) {
                 if (!response.headers.location) {
                     cleanup();
                     reject(new Error('Redirect response missing location header'));
+                    return;
+                }
+                
+                // Validate redirect URL to prevent SSRF
+                const redirectUrl = new URL(response.headers.location);
+                if (redirectUrl.protocol !== 'https:') {
+                    cleanup();
+                    reject(new Error('Redirect URL must use HTTPS protocol'));
                     return;
                 }
                 
