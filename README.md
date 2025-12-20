@@ -7,10 +7,13 @@ A web-based browser emulator powered by QEMU with configurable RAM and VRAM sett
 - **Multiple Browser Support**: Choose from Midori, Waterfox, or Brave browsers
 - **Configurable RAM**: Select from 1GB, 2GB, 4GB, 6GB, 8GB, 10GB, 12GB, or Unlimited
 - **Configurable VRAM**: Choose from 40MB, 80MB, 104MB, 200MB, 304MB, 400MB, 504MB, 600MB, 704MB, 800MB, or 1GB
+- **VM Display Window**: Visual display of the running virtual machine with simulated boot sequence
+- **VNC Support**: When running with QEMU, connect via VNC to view the actual VM display
 - **Theme-Aware UI**: Automatically switches between light and dark themes based on your browser's color scheme
 - **Inverse Logo Display**: Logos and favicons are inverted based on the theme (light assets in dark mode, dark assets in light mode)
 - **Real-time Console**: View emulator output in real-time
 - **QEMU Backend**: Powered by QEMU for efficient virtualization
+- **Disk Image Decompression**: Automatically decompresses .img.gz files for VM boot
 
 ## Prerequisites
 
@@ -55,8 +58,21 @@ The server will start on `http://localhost:3000`
 3. Choose RAM amount (1GB - Unlimited)
 4. Choose VRAM amount (40MB - 1GB)
 5. Click "Start Emulator"
-6. Monitor the console output and emulator status
-7. Click "Stop" when you're done
+6. View the VM Display window to see the virtual machine
+7. Monitor the console output and emulator status
+8. Click "Stop" when you're done
+
+### Using Disk Images
+
+To use real VM disk images instead of simulation mode:
+
+1. Create the `vm-images` directory in the project root (created automatically on first run)
+2. Place your compressed disk image (e.g., `midori-browser.img.gz`) in the `vm-images` directory
+3. The server will automatically decompress the image on first use
+4. Supported image names:
+   - `midori-browser.img.gz` for Midori browser
+   - `waterfox-browser.img.gz` for Waterfox browser
+   - `brave-browser.img.gz` for Brave browser
 
 ## Theme Support
 
