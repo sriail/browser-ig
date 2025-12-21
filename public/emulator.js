@@ -1,3 +1,6 @@
+// Import noVNC RFB class
+import RFB from './novnc/rfb.js';
+
 // Theme detection and logo/favicon management
 function initTheme() {
     const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -26,16 +29,14 @@ function updateLogoAndFavicon(isDarkMode) {
 
 // Emulator management
 let currentEmulatorId = null;
-let vncPort = null;
-let websocketPort = null;
+let rfbConnection = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY_MS = 2000;
 
 function displayEmulatorInfo(config, data) {
     const emulatorInfo = document.getElementById('emulator-info');
     const consoleOutput = document.getElementById('console-output');
-    
-    // Store VNC ports
-    vncPort = data.vncPort;
-    websocketPort = data.websocketPort;
     
     // Display configuration
     const ramText = config.ram === 'unlimited' ? 'Unlimited' : `${config.ram} GB`;
@@ -53,52 +54,34 @@ function displayEmulatorInfo(config, data) {
     consoleOutput.textContent = data.output || 'Emulator starting...\n';
     
     // Update connection info display
-    if (vncPort && websocketPort) {
-        document.getElementById('connection-info').style.display = 'block';
-        document.getElementById('vnc-port-display').textContent = vncPort;
-        document.getElementById('ws-port-display').textContent = websocketPort;
-    }
+    document.getElementById('connection-info').style.display = 'block';
+    document.getElementById('emulator-id-display').textContent = data.emulatorId;
+    document.getElementById('connection-status-display').textContent = 'Connecting...';
     
-    // Initialize VM display
-    initVmDisplay(data.hasImage);
+    // Initialize VM display with noVNC
+    initVmDisplay(data.hasImage, data.emulatorId);
     
     // Start polling for updates
     pollEmulatorStatus();
 }
 
-function initVmDisplay(hasImage) {
+function initVmDisplay(hasImage, emulatorId) {
     const placeholder = document.getElementById('vm-placeholder');
     const statusDot = document.getElementById('vnc-status-dot');
     const statusText = document.getElementById('vnc-status-text');
     const connectionStatus = document.getElementById('vm-connection-status');
+    const vncScreen = document.getElementById('vnc-screen');
     
     if (hasImage) {
-        // Real VM with VNC
+        // Real VM with VNC - connect using noVNC
         statusText.textContent = 'VM Starting...';
-        connectionStatus.textContent = 'Waiting for VNC connection...';
+        connectionStatus.textContent = 'Waiting for VM to boot...';
         
-        // Simulate VM boot progress (in real implementation, this would connect to VNC)
+        // Give the VM time to boot before connecting
         setTimeout(() => {
-            connectionStatus.textContent = 'VM is booting...';
-        }, 2000);
-        
-        setTimeout(() => {
-            connectionStatus.textContent = 'Loading graphical interface...';
-        }, 4000);
-        
-        setTimeout(() => {
-            statusDot.classList.add('connected');
-            statusText.textContent = 'Connected';
-            placeholder.innerHTML = `
-                <h3>🖥️ VM Display Active</h3>
-                <p>VNC connection established on port ${vncPort}</p>
-                <p>To view the VM graphically, connect a VNC client to:</p>
-                <p style="font-family: monospace; margin-top: 10px;">localhost:${vncPort}</p>
-                <p style="font-size: 0.8rem; margin-top: 15px; color: #888;">
-                    (noVNC web client integration coming soon)
-                </p>
-            `;
-        }, 6000);
+            connectionStatus.textContent = 'Connecting to VM display...';
+            connectToVnc(emulatorId);
+        }, 3000);
     } else {
         // Simulation mode
         statusText.textContent = 'Simulation Mode';
@@ -109,6 +92,113 @@ function initVmDisplay(hasImage) {
             <p>VM display is simulated - no actual graphical output</p>
             <p style="font-size: 0.8rem; margin-top: 15px; color: #888;">
                 Download the browser image to see the actual VM display
+            </p>
+        `;
+        document.getElementById('connection-status-display').textContent = 'Simulated';
+    }
+}
+
+function connectToVnc(emulatorId) {
+    const placeholder = document.getElementById('vm-placeholder');
+    const statusDot = document.getElementById('vnc-status-dot');
+    const statusText = document.getElementById('vnc-status-text');
+    const vncScreen = document.getElementById('vnc-screen');
+    
+    // Build WebSocket URL for VNC proxy
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/vnc/${emulatorId}`;
+    
+    console.log(`Connecting to VNC WebSocket: ${wsUrl}`);
+    
+    try {
+        // Create noVNC RFB connection
+        rfbConnection = new RFB(vncScreen, wsUrl, {
+            scaleViewport: true,
+            resizeSession: false,
+            credentials: { password: '' }
+        });
+        
+        // Handle connection events
+        rfbConnection.addEventListener('connect', () => {
+            console.log('VNC connected!');
+            placeholder.style.display = 'none';
+            vncScreen.style.display = 'block';
+            statusDot.classList.add('connected');
+            statusText.textContent = 'Connected';
+            document.getElementById('connection-status-display').textContent = 'Connected';
+            reconnectAttempts = 0;
+        });
+        
+        rfbConnection.addEventListener('disconnect', (e) => {
+            console.log('VNC disconnected:', e.detail);
+            vncScreen.style.display = 'none';
+            placeholder.style.display = 'block';
+            statusDot.classList.remove('connected');
+            
+            if (e.detail.clean) {
+                statusText.textContent = 'Disconnected';
+                placeholder.innerHTML = `
+                    <h3>🔌 Disconnected</h3>
+                    <p>VNC connection closed</p>
+                `;
+            } else {
+                // Connection failed - might need to retry
+                handleVncConnectionFailure(emulatorId);
+            }
+        });
+        
+        rfbConnection.addEventListener('credentialsrequired', () => {
+            console.log('VNC credentials required');
+            // Try with empty password
+            rfbConnection.sendCredentials({ password: '' });
+        });
+        
+        rfbConnection.addEventListener('securityfailure', (e) => {
+            console.error('VNC security failure:', e.detail);
+        });
+        
+        rfbConnection.addEventListener('clipboard', (e) => {
+            console.log('VNC clipboard:', e.detail.text);
+        });
+        
+    } catch (error) {
+        console.error('Failed to create VNC connection:', error);
+        handleVncConnectionFailure(emulatorId);
+    }
+}
+
+function handleVncConnectionFailure(emulatorId) {
+    const placeholder = document.getElementById('vm-placeholder');
+    const statusDot = document.getElementById('vnc-status-dot');
+    const statusText = document.getElementById('vnc-status-text');
+    
+    reconnectAttempts++;
+    
+    if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+        statusText.textContent = `Connecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`;
+        placeholder.innerHTML = `
+            <h3>⏳ Connecting to VM...</h3>
+            <p>The VM is starting up. Attempt ${reconnectAttempts} of ${MAX_RECONNECT_ATTEMPTS}</p>
+            <p style="font-size: 0.8rem; margin-top: 10px; color: #888;">
+                This may take a moment while the system boots...
+            </p>
+        `;
+        
+        // Retry connection after delay using currentEmulatorId for consistency
+        setTimeout(() => {
+            if (currentEmulatorId) {
+                connectToVnc(currentEmulatorId);
+            }
+        }, RECONNECT_DELAY_MS);
+    } else {
+        statusDot.classList.add('disconnected');
+        statusText.textContent = 'Connection Failed';
+        document.getElementById('connection-status-display').textContent = 'Failed';
+        placeholder.innerHTML = `
+            <h3>❌ Connection Failed</h3>
+            <p>Could not connect to VM display after ${MAX_RECONNECT_ATTEMPTS} attempts</p>
+            <p style="font-size: 0.8rem; margin-top: 10px; color: #888;">
+                The VM may still be booting. Check the console output below.
             </p>
         `;
     }
@@ -154,6 +244,13 @@ function updateEmulatorStopped() {
     statusDot.classList.remove('connected');
     statusDot.classList.add('disconnected');
     vncStatusText.textContent = 'Disconnected';
+    document.getElementById('connection-status-display').textContent = 'Stopped';
+    
+    // Disconnect VNC
+    if (rfbConnection) {
+        rfbConnection.disconnect();
+        rfbConnection = null;
+    }
 }
 
 async function stopEmulator() {
@@ -162,6 +259,12 @@ async function stopEmulator() {
     const stopButton = document.getElementById('stop-emulator');
     stopButton.disabled = true;
     stopButton.textContent = 'Stopping...';
+    
+    // Disconnect VNC first
+    if (rfbConnection) {
+        rfbConnection.disconnect();
+        rfbConnection = null;
+    }
     
     try {
         const response = await fetch(`/api/stop-emulator/${currentEmulatorId}`, {
@@ -210,8 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const emulatorId = sessionStorage.getItem('emulatorId');
     const configStr = sessionStorage.getItem('emulatorConfig');
     const output = sessionStorage.getItem('emulatorOutput');
-    const storedVncPort = sessionStorage.getItem('vncPort');
-    const storedWsPort = sessionStorage.getItem('websocketPort');
     const hasImage = sessionStorage.getItem('hasImage') === 'true';
     
     if (emulatorId && configStr) {
@@ -221,8 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
         displayEmulatorInfo(config, {
             emulatorId: emulatorId,
             output: output,
-            vncPort: storedVncPort ? parseInt(storedVncPort) : null,
-            websocketPort: storedWsPort ? parseInt(storedWsPort) : null,
             hasImage: hasImage
         });
         
@@ -255,6 +354,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle window close - stop emulator
     window.addEventListener('beforeunload', () => {
         if (currentEmulatorId) {
+            // Disconnect VNC
+            if (rfbConnection) {
+                rfbConnection.disconnect();
+            }
+            
             // Send stop request (async, may not complete before window closes)
             fetch(`/api/stop-emulator/${currentEmulatorId}`, {
                 method: 'POST',
