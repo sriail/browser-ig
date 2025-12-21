@@ -26,10 +26,16 @@ function updateLogoAndFavicon(isDarkMode) {
 
 // Emulator management
 let currentEmulatorId = null;
+let vncPort = null;
+let websocketPort = null;
 
 function displayEmulatorInfo(config, data) {
     const emulatorInfo = document.getElementById('emulator-info');
     const consoleOutput = document.getElementById('console-output');
+    
+    // Store VNC ports
+    vncPort = data.vncPort;
+    websocketPort = data.websocketPort;
     
     // Display configuration
     const ramText = config.ram === 'unlimited' ? 'Unlimited' : `${config.ram} GB`;
@@ -46,8 +52,66 @@ function displayEmulatorInfo(config, data) {
     // Display console output
     consoleOutput.textContent = data.output || 'Emulator starting...\n';
     
+    // Update connection info display
+    if (vncPort && websocketPort) {
+        document.getElementById('connection-info').style.display = 'block';
+        document.getElementById('vnc-port-display').textContent = vncPort;
+        document.getElementById('ws-port-display').textContent = websocketPort;
+    }
+    
+    // Initialize VM display
+    initVmDisplay(data.hasImage);
+    
     // Start polling for updates
     pollEmulatorStatus();
+}
+
+function initVmDisplay(hasImage) {
+    const placeholder = document.getElementById('vm-placeholder');
+    const statusDot = document.getElementById('vnc-status-dot');
+    const statusText = document.getElementById('vnc-status-text');
+    const connectionStatus = document.getElementById('vm-connection-status');
+    
+    if (hasImage) {
+        // Real VM with VNC
+        statusText.textContent = 'VM Starting...';
+        connectionStatus.textContent = 'Waiting for VNC connection...';
+        
+        // Simulate VM boot progress (in real implementation, this would connect to VNC)
+        setTimeout(() => {
+            connectionStatus.textContent = 'VM is booting...';
+        }, 2000);
+        
+        setTimeout(() => {
+            connectionStatus.textContent = 'Loading graphical interface...';
+        }, 4000);
+        
+        setTimeout(() => {
+            statusDot.classList.add('connected');
+            statusText.textContent = 'Connected';
+            placeholder.innerHTML = `
+                <h3>🖥️ VM Display Active</h3>
+                <p>VNC connection established on port ${vncPort}</p>
+                <p>To view the VM graphically, connect a VNC client to:</p>
+                <p style="font-family: monospace; margin-top: 10px;">localhost:${vncPort}</p>
+                <p style="font-size: 0.8rem; margin-top: 15px; color: #888;">
+                    (noVNC web client integration coming soon)
+                </p>
+            `;
+        }, 6000);
+    } else {
+        // Simulation mode
+        statusText.textContent = 'Simulation Mode';
+        statusDot.classList.add('connected');
+        placeholder.innerHTML = `
+            <h3>🖥️ Simulation Mode</h3>
+            <p>Running in simulation mode (no disk image available)</p>
+            <p>VM display is simulated - no actual graphical output</p>
+            <p style="font-size: 0.8rem; margin-top: 15px; color: #888;">
+                Download the browser image to see the actual VM display
+            </p>
+        `;
+    }
 }
 
 async function pollEmulatorStatus() {
@@ -69,16 +133,27 @@ async function pollEmulatorStatus() {
             if (data.running) {
                 setTimeout(pollEmulatorStatus, 2000);
             } else {
-                const emulatorInfo = document.getElementById('emulator-info');
-                const statusText = emulatorInfo.querySelector('p:last-child');
-                if (statusText) {
-                    statusText.innerHTML = '<strong>Status:</strong> <span class="status-stopped">Stopped</span>';
-                }
+                updateEmulatorStopped();
             }
         }
     } catch (error) {
         console.error('Error polling emulator status:', error);
     }
+}
+
+function updateEmulatorStopped() {
+    const emulatorInfo = document.getElementById('emulator-info');
+    const statusText = emulatorInfo.querySelector('p:last-child');
+    if (statusText) {
+        statusText.innerHTML = '<strong>Status:</strong> <span class="status-stopped">Stopped</span>';
+    }
+    
+    // Update VM display status
+    const statusDot = document.getElementById('vnc-status-dot');
+    const vncStatusText = document.getElementById('vnc-status-text');
+    statusDot.classList.remove('connected');
+    statusDot.classList.add('disconnected');
+    vncStatusText.textContent = 'Disconnected';
 }
 
 async function stopEmulator() {
@@ -96,11 +171,7 @@ async function stopEmulator() {
         const data = await response.json();
         
         if (response.ok) {
-            const emulatorInfo = document.getElementById('emulator-info');
-            const statusText = emulatorInfo.querySelector('p:last-child');
-            if (statusText) {
-                statusText.innerHTML = '<strong>Status:</strong> <span class="status-stopped">Stopped</span>';
-            }
+            updateEmulatorStopped();
             stopButton.textContent = 'Stopped';
             
             // Close window after a brief delay
@@ -120,6 +191,17 @@ async function stopEmulator() {
     }
 }
 
+function toggleFullscreen() {
+    const vmScreen = document.getElementById('vm-screen');
+    if (!document.fullscreenElement) {
+        vmScreen.requestFullscreen().catch(err => {
+            console.log('Error attempting fullscreen:', err);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
@@ -128,6 +210,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const emulatorId = sessionStorage.getItem('emulatorId');
     const configStr = sessionStorage.getItem('emulatorConfig');
     const output = sessionStorage.getItem('emulatorOutput');
+    const storedVncPort = sessionStorage.getItem('vncPort');
+    const storedWsPort = sessionStorage.getItem('websocketPort');
+    const hasImage = sessionStorage.getItem('hasImage') === 'true';
     
     if (emulatorId && configStr) {
         currentEmulatorId = emulatorId;
@@ -135,21 +220,37 @@ document.addEventListener('DOMContentLoaded', () => {
         
         displayEmulatorInfo(config, {
             emulatorId: emulatorId,
-            output: output
+            output: output,
+            vncPort: storedVncPort ? parseInt(storedVncPort) : null,
+            websocketPort: storedWsPort ? parseInt(storedWsPort) : null,
+            hasImage: hasImage
         });
         
         // Clear sessionStorage
         sessionStorage.removeItem('emulatorId');
         sessionStorage.removeItem('emulatorConfig');
         sessionStorage.removeItem('emulatorOutput');
+        sessionStorage.removeItem('vncPort');
+        sessionStorage.removeItem('websocketPort');
+        sessionStorage.removeItem('hasImage');
     } else {
         // No emulator data found
         document.getElementById('emulator-info').innerHTML = 
             '<p class="error-message">No emulator data found. Please start an emulator from the main page.</p>';
+        
+        // Update VM placeholder
+        const placeholder = document.getElementById('vm-placeholder');
+        placeholder.innerHTML = `
+            <h3>⚠️ No Emulator Running</h3>
+            <p>Please start an emulator from the main page.</p>
+        `;
     }
     
     // Stop emulator button
     document.getElementById('stop-emulator').addEventListener('click', stopEmulator);
+    
+    // Fullscreen button
+    document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
     
     // Handle window close - stop emulator
     window.addEventListener('beforeunload', () => {

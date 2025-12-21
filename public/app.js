@@ -1,4 +1,9 @@
 // Theme detection and logo/favicon management
+
+// Window dimensions for emulator popup
+const EMULATOR_WINDOW_WIDTH = 1000;
+const EMULATOR_WINDOW_HEIGHT = 850;
+
 function initTheme() {
     const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
     updateLogoAndFavicon(darkMode);
@@ -96,11 +101,14 @@ async function startEmulator() {
             sessionStorage.setItem('emulatorId', data.emulatorId);
             sessionStorage.setItem('emulatorConfig', JSON.stringify(config));
             sessionStorage.setItem('emulatorOutput', data.output);
+            sessionStorage.setItem('vncPort', data.vncPort);
+            sessionStorage.setItem('websocketPort', data.websocketPort);
+            sessionStorage.setItem('hasImage', data.hasImage ? 'true' : 'false');
             
             // Open emulator based on selected target
             if (windowTarget === 'window') {
                 // Open in new popup window with specific dimensions
-                window.open('emulator.html', '_blank', 'width=900,height=700');
+                window.open('emulator.html', '_blank', `width=${EMULATOR_WINDOW_WIDTH},height=${EMULATOR_WINDOW_HEIGHT}`);
             } else if (windowTarget === '_blank') {
                 // Open in new tab
                 window.open('emulator.html', '_blank');
