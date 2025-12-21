@@ -184,10 +184,10 @@ function handleVncConnectionFailure(emulatorId) {
             </p>
         `;
         
-        // Retry connection after delay
+        // Retry connection after delay using currentEmulatorId for consistency
         setTimeout(() => {
             if (currentEmulatorId) {
-                connectToVnc(emulatorId);
+                connectToVnc(currentEmulatorId);
             }
         }, RECONNECT_DELAY_MS);
     } else {

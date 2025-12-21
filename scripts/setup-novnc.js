@@ -106,9 +106,20 @@ async function main() {
         console.log(`Downloading noVNC v${NOVNC_VERSION}...`);
         await downloadFile(NOVNC_URL, zipPath);
         
-        // Extract
+        // Extract - try unzip first, fall back to error message
         console.log('Extracting noVNC...');
-        execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'pipe' });
+        try {
+            execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'pipe' });
+        } catch (unzipError) {
+            // Check if unzip is available
+            try {
+                execSync('which unzip', { stdio: 'pipe' });
+                // unzip is available but failed for another reason
+                throw new Error(`Failed to extract noVNC: ${unzipError.message}`);
+            } catch (whichError) {
+                throw new Error('unzip utility not found. Please install unzip: sudo apt-get install unzip (Linux) or brew install unzip (macOS)');
+            }
+        }
         
         // Copy core files to public/novnc
         const extractedDir = path.join(TEMP_DIR, `noVNC-${NOVNC_VERSION}`);

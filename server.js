@@ -778,14 +778,6 @@ wss.on('connection', (ws, request, emulator) => {
         });
     });
     
-    // Handle VNC connection error (e.g., VM not ready yet)
-    vncSocket.on('error', (err) => {
-        console.error(`VNC connection error: ${err.message}`);
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-            ws.close(1011, 'VNC server not available');
-        }
-    });
-    
     // Forward WebSocket client data to VNC server
     ws.on('message', (data) => {
         const vncSocket = vncConnections.get(ws);
