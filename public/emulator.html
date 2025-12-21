@@ -111,6 +111,19 @@
         .connection-info span {
             color: var(--text-secondary);
         }
+        
+        /* noVNC screen container */
+        #vnc-screen {
+            width: 100%;
+            height: 480px;
+            background-color: #000;
+            display: none;
+        }
+        
+        #vnc-screen canvas {
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -143,11 +156,12 @@
                             <p>Waiting for VM to start...</p>
                             <p id="vm-connection-status">Initializing VNC connection...</p>
                         </div>
-                        <canvas id="vnc-canvas" style="display: none;"></canvas>
+                        <!-- noVNC canvas container -->
+                        <div id="vnc-screen"></div>
                     </div>
                     <div class="connection-info" id="connection-info" style="display: none;">
-                        <span>VNC Port:</span> <span id="vnc-port-display">-</span> | 
-                        <span>WebSocket:</span> <span id="ws-port-display">-</span>
+                        <span>Emulator ID:</span> <span id="emulator-id-display">-</span> | 
+                        <span>Status:</span> <span id="connection-status-display">-</span>
                     </div>
                 </div>
                 
@@ -164,6 +178,6 @@
         </footer>
     </div>
 
-    <script src="emulator.js"></script>
+    <script type="module" src="emulator.js"></script>
 </body>
 </html>

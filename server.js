@@ -5,15 +5,27 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 const zlib = require('zlib');
+const net = require('net');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Create HTTP server for both Express and WebSocket
+const server = http.createServer(app);
+
+// WebSocket server for VNC proxy
+const wss = new WebSocket.Server({ noServer: true });
+
+// Map to store WebSocket-to-VNC connections
+const vncConnections = new Map();
+
 // Simple rate limiting
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 60; // 60 requests per minute
+const MAX_REQUESTS_PER_WINDOW = 500; // 500 requests per minute (increased for noVNC module loading)
 
 function rateLimiter(req, res, next) {
     const ip = req.ip || req.connection.remoteAddress;
@@ -694,13 +706,129 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
+/**
+ * WebSocket upgrade handler for VNC proxy
+ */
+server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+    
+    // Handle /vnc/:emulatorId WebSocket connections
+    const vncMatch = pathname.match(/^\/vnc\/(.+)$/);
+    if (vncMatch) {
+        const emulatorId = vncMatch[1];
+        const emulator = emulators.get(emulatorId);
+        
+        if (!emulator) {
+            socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+        
+        if (!emulator.running) {
+            socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+        
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request, emulator);
+        });
+    } else {
+        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+        socket.destroy();
+    }
+});
+
+/**
+ * WebSocket connection handler - proxies to VNC server
+ */
+wss.on('connection', (ws, request, emulator) => {
+    const vncPort = emulator.vncPort;
+    console.log(`WebSocket VNC proxy connecting to VNC port ${vncPort} for emulator ${emulator.id}`);
+    
+    // Connect to the VNC server
+    const vncSocket = net.connect(vncPort, '127.0.0.1', () => {
+        console.log(`Connected to VNC server on port ${vncPort}`);
+        
+        // Store connection for cleanup
+        vncConnections.set(ws, vncSocket);
+        
+        // Forward VNC server data to WebSocket client
+        vncSocket.on('data', (data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        });
+        
+        // Handle VNC socket close
+        vncSocket.on('close', () => {
+            console.log(`VNC connection closed for port ${vncPort}`);
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
+            vncConnections.delete(ws);
+        });
+        
+        vncSocket.on('error', (err) => {
+            console.error(`VNC socket error: ${err.message}`);
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
+            vncConnections.delete(ws);
+        });
+    });
+    
+    // Handle VNC connection error (e.g., VM not ready yet)
+    vncSocket.on('error', (err) => {
+        console.error(`VNC connection error: ${err.message}`);
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close(1011, 'VNC server not available');
+        }
+    });
+    
+    // Forward WebSocket client data to VNC server
+    ws.on('message', (data) => {
+        const vncSocket = vncConnections.get(ws);
+        if (vncSocket && vncSocket.writable) {
+            // Handle both Buffer and ArrayBuffer
+            if (Buffer.isBuffer(data)) {
+                vncSocket.write(data);
+            } else if (data instanceof ArrayBuffer) {
+                vncSocket.write(Buffer.from(data));
+            } else {
+                vncSocket.write(Buffer.from(data));
+            }
+        }
+    });
+    
+    // Handle WebSocket close
+    ws.on('close', () => {
+        console.log(`WebSocket closed for VNC port ${vncPort}`);
+        const vncSocket = vncConnections.get(ws);
+        if (vncSocket) {
+            vncSocket.destroy();
+            vncConnections.delete(ws);
+        }
+    });
+    
+    ws.on('error', (err) => {
+        console.error(`WebSocket error: ${err.message}`);
+        const vncSocket = vncConnections.get(ws);
+        if (vncSocket) {
+            vncSocket.destroy();
+            vncConnections.delete(ws);
+        }
+    });
+});
+
+// Start server with WebSocket support
+server.listen(PORT, () => {
     console.log(`
 ===========================================
   Browser IG Server Started
 ===========================================
   Server running on: http://localhost:${PORT}
+  WebSocket VNC proxy enabled
   Environment: ${process.env.NODE_ENV || 'development'}
 ===========================================
     `);
@@ -709,6 +837,17 @@ app.listen(PORT, () => {
 // Cleanup on exit
 process.on('SIGINT', () => {
     console.log('\nShutting down server...');
+    
+    // Close all VNC WebSocket connections
+    vncConnections.forEach((vncSocket, ws) => {
+        try {
+            vncSocket.destroy();
+            ws.close();
+        } catch (e) {
+            // Ignore cleanup errors
+        }
+    });
+    vncConnections.clear();
     
     // Stop all running emulators
     emulators.forEach((emulator) => {
@@ -720,4 +859,4 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
-module.exports = app;
+module.exports = { app, server };
